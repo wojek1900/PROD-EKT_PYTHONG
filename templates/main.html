@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Profile</title>
+</head>
+<body>
+    <h1>User Profile</h1>
+    <p>Witaj, {{ user.nick }}!</p>
+    <ul>
+        <li>ID: {{ user.id }}</li>
+        <li>Nick: {{ user.nick }}</li>
+        <li>Email: {{ user.mail }}</li>
+        <li>Opis: {{ user.opis or 'Brak opisu' }}</li>
+        <li>Zdjęcie wskaźnik: {{ user.zdjecie_wskaznik }}</li>
+        <li>FS Uniquifier: {{ user.fs_uniquifier }}</li>
+        <li>Active: {{ user.active }}</li>
+        <li>password: {{ user.password }}</li>
+        <li>Roles: 
+            <ul>
+                {% for role in user.roles %}
+                    <li>{{ role.name }} ({{ role.description }})</li>
+                {% endfor %}
+            </ul>
+        </li>
+    </ul>
+    <a href="{{ url_for('logout') }}">Wyloguj się</a>
+</body>
+</html>
