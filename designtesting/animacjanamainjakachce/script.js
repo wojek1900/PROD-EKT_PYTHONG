@@ -33,3 +33,7 @@ close.addEventListener("click", function() {
     anim.play();
     body.classList.remove("open");
 })
+
+//https://codepen.io/Pantso/full/eBVzgx
+// dwie wersje jedna taka a druga że strona się nakłąda na strone
+// urzyj ajax

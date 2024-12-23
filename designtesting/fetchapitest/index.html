@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fetch API with Fade Effect</title>
+    <style>
+        #content {
+            opacity: 1;
+            transition: opacity 0.5s ease-in-out;
+        }
+        #content.hidden {
+            opacity: 0;
+        }
+    </style>
+</head>
+<body id="content">
+    <nav>
+        <button id="load-page1">Załaduj Stronę 1</button>
+        <button id="load-page2">Załaduj Stronę 2</button>
+    </nav>
+    <main>
+        <h1>Witamy!</h1>
+        <p>Kliknij przyciski, aby załadować treść dynamicznie.</p>
+    </main>
+    <script src="script.js"></script>
+</body>
+</html>

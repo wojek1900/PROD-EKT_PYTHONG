@@ -1,4 +1,6 @@
-function initparticles() {
+let nextParticle;
+async function initparticles() {
+    await clearCanvasMemory();
     const logo = document.querySelector('.obraz');
     nextParticle = new NextParticle({
         image: logo,
@@ -22,6 +24,11 @@ function initparticles() {
 }
 
 document.addEventListener('DOMContentLoaded', initparticles);
+
+async function initAllAnimations() {
+    await clearCanvasMemory();
+    await initparticles();
+}
 
 // Obserwator zmian w elemencie o id 'content'
 const observer1 = new MutationObserver((mutations1) => {
