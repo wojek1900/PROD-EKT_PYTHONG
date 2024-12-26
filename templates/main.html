@@ -2,10 +2,23 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <link rel="stylesheet" href="static/css/styles.css">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Profile</title>
+    <title>Discover</title>
 </head>
 <body>
+    <div class="navigation">
+        <a href="profile.html">profil</a>
+        <a href="main.html">główna</a>
+        <a href="ai.html">AI</a>
+        <a href="private.html">prywatne</a>
+        <a href="{{ url_for('logout') }}">Wyloguj się</a>
+    </div>
+    <div>
+        <!--<a href="glowna">główna</a>-->
+        <a href="obesrwowane">obesrwowane</a>
+        <a href="spolecznosci">społeczności</a>
+    </div>
     <h1>User Profile</h1>
     <p>Witaj, {{ user.nick }}!</p>
     <ul>
@@ -25,6 +38,62 @@
             </ul>
         </li>
     </ul>
-    <a href="{{ url_for('logout') }}">Wyloguj się</a>
+    <form id="post-form" enctype="multipart/form-data">
+        <textarea name="text" placeholder="Co słychać?"></textarea>
+        <input type="file" name="files" multiple accept="*">
+        <label>
+            <input type="checkbox" name="is_private" > Prywatny post
+        </label>
+        <button type="submit">Wyślij</button>
+    </form>
+
+    <div id="posts">
+        <p>POSTY</p>
+        {% for post in posts %}
+        <div class="post">
+            <div class="post-header">
+                {% if post.author.zdjecie_wskaznik == "static/basics/profile.png" %}
+                    <img src="{{ url_for('static', filename='basics/profile.png') }}" alt="Default profile picture" class="profile-picture">
+                {% elif post.author.zdjecie_wskaznik %}
+                    <img src="{{ url_for('static', filename='uploads/' + post.author.zdjecie_wskaznik) }}" alt="{{ post.author.nick }}'s profile picture" class="profile-picture">
+                {% endif %}
+                <p class="author-name">{{ post.author.nick }}</p>
+            </div>
+            <p class="post-content">{{ post.text }}</p>
+            <div class="attachments">
+                {% for attachment in post.post_attachments %}
+                    {% if attachment.file_type.startswith('image/') %}
+                        {% set image_path = 'uploads/' + attachment.file_name %}
+                        <img src="{{ url_for('static', filename=image_path) }}" alt="{{ attachment.file_name }}">
+                    {% elif attachment.file_type.startswith('video/') %}
+                        {% set video_path = 'uploads/' + attachment.file_name %}
+                        <video controls>
+                            <source src="{{ url_for('static', filename=video_path) }}" type="{{ attachment.file_type }}">
+                        </video>
+                    {% elif attachment.file_type.startswith('audio/') %}
+                        {% set audio_path = 'uploads/' + attachment.file_name %}
+                        <audio controls>
+                            <source src="{{ url_for('static', filename=audio_path) }}" type="{{ attachment.file_type }}">
+                        </audio>
+                    {% else %}
+                        <p>
+                            Załącznik: 
+                            <a href="{{ url_for('download_file', filename=attachment.file_name) }}" download>
+                               {{ attachment.file_name }}
+                            </a> 
+                        </p>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            <p class="post-date">Data: {{ post.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+        </div>
+        {% endfor %}
+    </div>
+
+
+
+
+
+    <script src="{{ url_for('static', filename='js/send.js') }}"></script>
 </body>
 </html>

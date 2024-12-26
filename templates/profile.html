@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Profile</title>
+    <style>
+        .profile-image {
+            width: 150px;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+    <div class="navigation">
+        <a href="profile.html">profil</a>
+        <a href="main.html">główna</a>
+        <a href="ai.html">AI</a>
+        <a href="private.html">prywatne</a>
+        <a href="{{ url_for('logout') }}">Wyloguj się</a>
+    </div>
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-info">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    <h1>Profil użytkownika</h1>
+    {% if current_user.zdjecie_wskaznik == "static/basics/profile.png" %}
+        <img src="{{ url_for('static', filename='basics/profile.png') }}" alt="Default Avatar" class="profile-image">
+    {% else %}
+        <img src="{{ url_for('static', filename='uploads/' + current_user.zdjecie_wskaznik) }}" alt="User Avatar" class="profile-image">
+    {% endif %}
+    <form action="{{ url_for('change_profile') }}" method="post" enctype="multipart/form-data">
+        <label for="nick">Nick:</label>
+        <input type="text" id="nick" name="nick" value="{{ current_user.nick }}"><br><br>
+
+        <label for="opis">Opis:</label>
+        <textarea id="opis" name="opis">{{ current_user.opis }}</textarea><br><br>
+
+        <label for="avatar">Zdjęcie profilowe:</label>
+
+        <input type="submit" value="Zapisz zmiany">
+    </form>
+
+
+    <h2>Informacje o profilu:</h2>
+    <ul>
+        <li>ID: {{ user.id }}</li>
+        <li>Active: {{ user.active }}</li>
+        <li>Roles: 
+            <ul>
+                {% for role in user.roles %}
+                    <li>{{ role.name }} ({{ role.description }})</li>
+                {% endfor %}
+            </ul>
+        </li>
+    </ul>
+</body>
+</html>
+
