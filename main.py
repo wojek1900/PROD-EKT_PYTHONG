@@ -1,8 +1,9 @@
 import os
 import time
 import logging
+import json
 from werkzeug.utils import secure_filename
-from flask_login import current_user
+from flask_login import current_user 
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_from_directory
 from flask_security import Security, UserMixin, RoleMixin, SQLAlchemyUserDatastore
 from flask_sqlalchemy import SQLAlchemy
@@ -138,65 +139,40 @@ def profile():
     return render_template("profile.html", user=current_user)
 
 
-@app.route("/change_profile", methods=['POST'])
+@app.route('/change_profile', methods=['POST'])
 @login_required
 def change_profile():
-    if request.method == 'POST':
-        new_user = User.query.get(current_user.id)
-        changes = request.form.to_dict()
+    try:
+        nick = request.form.get('nick')
+        opis = request.form.get('opis')
+        avatar = request.files.get('avatar')
 
-        if 'nick' in changes:
-            new_nick = changes['nick']
-            if new_nick != new_user.nick:
-                existing_user = User.query.filter_by(nick=new_nick).first()
-                if existing_user:
-                    flash('Ten nick jest już zajęty.')
-                    return redirect(url_for('profile'))
-                new_user.nick = new_nick
+        if nick:
+            current_user.nick = nick
+        if opis:
+            current_user.opis = opis
 
-        if 'opis' in changes:
-            new_user.opis = changes['opis']
+        if avatar:
+            original_filename = secure_filename(avatar.filename)
+            file_extension = os.path.splitext(original_filename)[1]
+            unique_filename = f"avatar_{uuid.uuid4()}{file_extension}"
 
-        if 'avatar' in request.files:
-            avatar_file = request.files['avatar']
-            if avatar_file and avatar_file.filename != '':
-                try:
-                    filename = secure_filename(f"{current_user.id}_{int(time.time())}_{avatar_file.filename}")
+            avatar_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+            avatar.save(avatar_path)
 
-                    if not os.path.exists(app.config['UPLOAD_FOLDER']):
-                        os.makedirs(app.config['UPLOAD_FOLDER'])
+            current_user.zdjecie_wskaznik = unique_filename
 
-                    avatar_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                    avatar_file.save(avatar_path)
-
-                    new_user.zdjecie_wskaznik = filename
-
-                    flash(f'Zdjęcie profilowe zostało zaktualizowane: {filename}')
-                except Exception as e:
-                    logging.error(f"Błąd podczas zapisywania pliku: {str(e)}")
-                    flash(f'Wystąpił błąd podczas zapisywania zdjęcia: {str(e)}')
-            else:
-                logging.debug("Nie wybrano pliku lub nazwa pliku jest pusta")
-
-        try:
-            db.session.commit()
-            flash('Profil został zaktualizowany pomyślnie.')
-        except Exception as e:
-            db.session.rollback()
-            logging.error(f"Błąd podczas aktualizacji profilu: {str(e)}")
-            flash(f'Wystąpił błąd podczas aktualizacji profilu: {str(e)}')
-
+        db.session.commit()
+        flash('Profil został zaktualizowany pomyślnie.')
+        return redirect(url_for('profile'))
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Wystąpił błąd podczas aktualizacji profilu: {str(e)}')
         return redirect(url_for('profile'))
 
-    return redirect(url_for('profile'))
 
 
 
-
-def allowed_file(filename):
-    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 @app.route('/add_user', methods=['POST'])
@@ -258,14 +234,13 @@ def add_user():
             mail=mail,
             password=hashed_password,
             opis="",
-            zdjecie_wskaznik='basics/profile.png',  # Set default avatar
+            zdjecie_wskaznik='basics/profile.png', 
             fs_uniquifier=str(uuid.uuid4()),
             active=True
         )
         db.session.add(new_user)
         db.session.commit()
 
-        # Przypisz rolę "user" do nowego użytkownika
         user_role = Role.query.filter_by(name='user').first()
         if user_role:
             new_user.roles.append(user_role)
@@ -293,6 +268,7 @@ def download_file(filename):
 
 
 
+
 @app.route('/public_post', methods=['POST'])
 @login_required
 def add_public_post():
@@ -303,16 +279,19 @@ def add_public_post():
 
         new_post = public_post(text=text, author=current_user, isprivate=is_private)
         db.session.add(new_post)
-        db.session.flush()  # To get the id of the new post
+        db.session.flush() 
 
         for file in files:
             if file:
-                filename = secure_filename(file.filename)
-                file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                original_filename = secure_filename(file.filename)
+                file_extension = os.path.splitext(original_filename)[1]
+                unique_filename = f"{uuid.uuid4()}{file_extension}"
+
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
                 file.save(file_path)
 
                 file_type = file.content_type
-                new_attachment = PostAttachment(post_id=new_post.id, file_name=filename, file_path=file_path, file_type=file_type)
+                new_attachment = PostAttachment(post_id=new_post.id, file_name=unique_filename, file_path=file_path, file_type=file_type)
                 db.session.add(new_attachment)
 
         db.session.commit()
@@ -328,6 +307,98 @@ def add_public_post():
 
 
 
+
+
+
+@app.route('/delete_post/<int:post_id>', methods=['POST'])
+@login_required
+def delete_post(post_id):
+    post = public_post.query.get_or_404(post_id)
+    
+    if post.author != current_user:
+        return jsonify({"status": "ERROR", "message": "Nie masz uprawnień do usunięcia tego posta."}), 403
+    
+    try:
+        for attachment in post.post_attachments:
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], attachment.file_name)
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            db.session.delete(attachment)
+        
+        db.session.delete(post)
+        db.session.commit()
+        return jsonify({"status": "OK", "message": "Post został pomyślnie usunięty."}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "ERROR", "message": f"Wystąpił błąd podczas usuwania posta: {str(e)}"}), 500    
+    
+
+
+
+
+@app.route('/edit_post/<int:post_id>', methods=['POST'])
+@login_required
+def edit_post(post_id):
+    post = public_post.query.get_or_404(post_id)
+    if post.author != current_user:
+        return jsonify({"status": "ERROR", "message": "Nie masz uprawnień do edycji tego posta."}), 403
+
+    try:
+        post.text = request.form.get('text')
+
+        current_attachments = json.loads(request.form.get('attachments', '[]'))
+        current_attachment_ids = [att['id'] for att in current_attachments]
+
+        existing_attachments = {str(att.id): att for att in post.post_attachments}
+
+        attachments_to_remove = []
+        for att_id, attachment in existing_attachments.items():
+            if att_id not in current_attachment_ids:
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], attachment.file_name)
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                db.session.delete(attachment)
+                attachments_to_remove.append(attachment.file_name)
+
+
+        new_files = request.files.getlist('new_files')
+        new_attachments = []
+        for file in new_files:
+            if file and file.filename:
+                original_filename = secure_filename(file.filename)
+                file_extension = os.path.splitext(original_filename)[1]
+                unique_filename = f"{uuid.uuid4()}{file_extension}"
+
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+                file.save(file_path)
+
+                new_attachment = PostAttachment(post_id=post.id, file_name=unique_filename, file_path=file_path, file_type=file.content_type)
+                db.session.add(new_attachment)
+                new_attachments.append(original_filename)
+
+        if new_attachments:
+            flash(f"Załączniki dodane: {', '.join(new_attachments)}")
+
+        db.session.commit()
+
+        updated_attachments = [{"id": att.id, "filename": att.file_name, "type": att.file_type} for att in post.post_attachments]
+
+        return jsonify({
+            "status": "OK", 
+            "message": "Post został zaktualizowany.", 
+            "attachments": updated_attachments
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "status": "ERROR", 
+            "message": f"Wystąpił błąd podczas aktualizacji posta: {str(e)}"
+        }), 500
+
+    
+    
+    
+    
 @app.route('/logout')
 @login_required
 def logout():
@@ -337,8 +408,6 @@ def logout():
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
-
-        # Create roles
         user_role = Role.query.filter_by(name='user').first()
         if not user_role:
             user_role = Role(name='user', description='Regular user')
@@ -362,19 +431,18 @@ if __name__ == "__main__":
 # co zrobić aby wszystko działało:
 # - dodać sprawdzanie danych w formularzach rejestracji i logowania nick nie może mieć @
 # - zrobić wyszukiwarkę po nicku
+# - dodanie systemu rang jak admin itd
 # - zrobić bazy danych do wszystkich wiadomości które bedą zlinkowane z innymi bazami danych do koemntarzy
-# - dodać opcję usuwania wiadomości
-# - dodać opcję edycji wiadomości
 # - dodać opcję pobierania avatara
 # - dodać opcję robienia grup
 # - dodać opcję dołączenia do grup
 # - dodać opcję usuwania z grup
 # - dodać opcje pisania wiadomości do urzytkowników w grupach i prywatnych
-# - opcje wysyłania plików, filmów, zdjęć do wiadomości
 # - powiadomienia o nowych wiadomościach
 # - zlinkowanie AI jak llama czy qwen do analizy komentarzy i danych
+# - reakcje do postów
 # - zrobienie wykresów z danych postów
 # - zrobienie wyszukiwarki po tagach
-# - dodać tło main z particlejs z configu
+# - dodać tło main z particlejs z configu lub dodać tło takie z wodą na doel i kursurem robiącym efekt distortion
 # - jak wszystko się uda sprubować urzywając tensorflowa wybierać trafne treści dla urzytkownika
 ###

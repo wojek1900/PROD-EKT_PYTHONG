@@ -7,6 +7,13 @@
     <title>Discover</title>
 </head>
 <body>
+    {% with messages = get_flashed_messages() %}
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-info">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
     <div class="navigation">
         <a href="profile.html">profil</a>
         <a href="main.html">główna</a>
@@ -22,14 +29,6 @@
     <h1>User Profile</h1>
     <p>Witaj, {{ user.nick }}!</p>
     <ul>
-        <li>ID: {{ user.id }}</li>
-        <li>Nick: {{ user.nick }}</li>
-        <li>Email: {{ user.mail }}</li>
-        <li>Opis: {{ user.opis or 'Brak opisu' }}</li>
-        <li>Zdjęcie wskaźnik: {{ user.zdjecie_wskaznik }}</li>
-        <li>FS Uniquifier: {{ user.fs_uniquifier }}</li>
-        <li>Active: {{ user.active }}</li>
-        <li>password: {{ user.password }}</li>
         <li>Roles: 
             <ul>
                 {% for role in user.roles %}
@@ -58,42 +57,283 @@
                     <img src="{{ url_for('static', filename='uploads/' + post.author.zdjecie_wskaznik) }}" alt="{{ post.author.nick }}'s profile picture" class="profile-picture">
                 {% endif %}
                 <p class="author-name">{{ post.author.nick }}</p>
+                {% if post.author.nick == current_user.nick %}
+                    <div class="options-public-post">
+                        <button class="remove-post" data-post-id="{{ post.id }}" value="USUN">USUN</button>
+                        <button class="edit-post" data-post-id="{{ post.id }}" value="ZMIEN">ZMIEN</button>
+                    </div>
+                {% endif %}
             </div>
             <p class="post-content">{{ post.text }}</p>
             <div class="attachments">
                 {% for attachment in post.post_attachments %}
                     {% if attachment.file_type.startswith('image/') %}
                         {% set image_path = 'uploads/' + attachment.file_name %}
-                        <img src="{{ url_for('static', filename=image_path) }}" alt="{{ attachment.file_name }}">
+                        <img src="{{ url_for('static', filename=image_path) }}" alt="{{ attachment.file_name }}" data-id="{{ attachment.id }}">
                     {% elif attachment.file_type.startswith('video/') %}
                         {% set video_path = 'uploads/' + attachment.file_name %}
-                        <video controls>
+                        <video controls data-id="{{ attachment.id }}">
                             <source src="{{ url_for('static', filename=video_path) }}" type="{{ attachment.file_type }}">
                         </video>
                     {% elif attachment.file_type.startswith('audio/') %}
                         {% set audio_path = 'uploads/' + attachment.file_name %}
-                        <audio controls>
+                        <audio controls data-id="{{ attachment.id }}">
                             <source src="{{ url_for('static', filename=audio_path) }}" type="{{ attachment.file_type }}">
                         </audio>
                     {% else %}
                         <p>
                             Załącznik: 
-                            <a href="{{ url_for('download_file', filename=attachment.file_name) }}" download>
+                            <a href="{{ url_for('download_file', filename=attachment.file_name) }}" download data-id="{{ attachment.id }}">
                                {{ attachment.file_name }}
                             </a> 
                         </p>
                     {% endif %}
                 {% endfor %}
             </div>
-            <p class="post-date">Data: {{ post.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
         </div>
+
         {% endfor %}
+    </div>
+    <div class="overlay" id="overlay"></div>
+    <div class="edit-form" id="editForm">
+        <h2>Edytuj post</h2>
+        <textarea id="editContent" rows="4" cols="50"></textarea>
+        <div class="editattachments">
+            <label for="editFiles">Załączniki:</label>
+            <div id="existingAttachments">
+            </div>
+            <input type="file" id="editFiles" multiple accept="*">
+        </div>
+        <button id="saveEdit">Zapisz</button>
+        <button id="cancelEdit">Anuluj</button>
     </div>
 
 
-
-
-
     <script src="{{ url_for('static', filename='js/send.js') }}"></script>
-</body>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const posts = document.getElementById('posts');
+            const editForm = document.getElementById('editForm');
+            const overlay = document.getElementById('overlay');
+            const editContent = document.getElementById('editContent');
+            const saveEdit = document.getElementById('saveEdit');
+            const cancelEdit = document.getElementById('cancelEdit');
+            const existingAttachments = document.getElementById('existingAttachments');
+            const editFiles = document.getElementById('editFiles');
+            let currentPostId = null;
+            let currentAttachments = [];
+    
+            posts.addEventListener('click', function(e) {
+                if (e.target.classList.contains('remove-post')) {
+                    const postId = e.target.dataset.postId;
+                    if (confirm('Czy na pewno chcesz usunąć ten post?')) {
+                        fetch(`/delete_post/${postId}`, {
+                            method: 'POST',
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === "OK") {
+                                const postElement = e.target.closest('.post');
+                                postElement.remove();
+                                alert(data.message);
+                            } else {
+                                alert(`Błąd: ${data.message}`);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert(`Wystąpił błąd podczas usuwania posta: ${error.message}`);
+                        });
+                    }
+                } else if (e.target.classList.contains('edit-post')) {
+                    const postElement = e.target.closest('.post');
+                    currentPostId = e.target.dataset.postId;
+                    const contentElement = postElement.querySelector('.post-content');
+                    editContent.value = contentElement.textContent;
+                    
+                    existingAttachments.innerHTML = '';
+                    currentAttachments = [];
+
+                    const attachments = postElement.querySelectorAll('.attachments img, .attachments video, .attachments audio, .attachments a');
+                    attachments.forEach((attachment, index) => {
+                        const attachmentDiv = document.createElement('div');
+                        attachmentDiv.className = 'attachment-preview';
+                        attachmentDiv.style.width = '100px';
+                        attachmentDiv.style.height = '100px';
+                        attachmentDiv.style.backgroundColor = 'white';
+                        attachmentDiv.style.position = 'relative';
+                        attachmentDiv.style.display = 'inline-block';
+                        attachmentDiv.style.margin = '5px';
+
+                        const removeButton = document.createElement('button');
+                        removeButton.textContent = `x`;
+                        removeButton.style.position = 'absolute';
+                        removeButton.style.top = '0';
+                        removeButton.style.right = '0';
+                        removeButton.addEventListener('click', () => {
+                            attachmentDiv.remove();
+                            currentAttachments = currentAttachments.filter(a => a.id !== attachment.dataset.id);
+                        });
+                        if (attachment.tagName === 'IMG') {
+                            const img = document.createElement('img');
+                            img.src = attachment.src;
+                            img.style.width = '100%';
+                            img.style.height = '100%';
+                            img.style.objectFit = 'cover';
+                            attachmentDiv.appendChild(img);
+                        } else if (attachment.tagName === 'VIDEO' || attachment.tagName === 'AUDIO') {
+                            const icon = document.createElement('div');
+                            icon.textContent = attachment.tagName === 'VIDEO' ? '🎥' : '🎵';
+                            icon.style.fontSize = '40px';
+                            icon.style.textAlign = 'center';
+                            icon.style.lineHeight = '100px';
+                            attachmentDiv.appendChild(icon);
+                        } else {
+                            const icon = document.createElement('div');
+                            icon.textContent = '📎';
+                            icon.style.fontSize = '40px';
+                            icon.style.textAlign = 'center';
+                            icon.style.lineHeight = '100px';
+                            attachmentDiv.appendChild(icon);
+                        }
+                        attachmentDiv.appendChild(removeButton);
+                        existingAttachments.appendChild(attachmentDiv);
+
+                        currentAttachments.push({
+                            id: attachment.dataset.id,
+                            name: attachment.alt || attachment.textContent
+                        });
+                    });
+
+
+                    editForm.style.display = 'block';
+                    overlay.style.display = 'block';
+                }
+            });
+
+            saveEdit.addEventListener('click', function() {
+                const newContent = editContent.value;
+                const formData = new FormData();
+                formData.append('text', newContent);
+                formData.append('attachments', JSON.stringify(currentAttachments));
+            
+                for (let file of editFiles.files) {
+                    formData.append('new_files', file);
+                }
+            
+                fetch(`/edit_post/${currentPostId}`, {
+                    method: 'POST',
+                    body: formData
+                })
+                editForm.style.display = 'none';
+                overlay.style.display = 'none';
+                saveEdit.addEventListener('click', function() {
+                    const newContent = editContent.value;
+                    const formData = new FormData();
+                    formData.append('text', newContent);
+                    formData.append('attachments', JSON.stringify(currentAttachments));
+
+                    for (let file of editFiles.files) {
+                        formData.append('new_files', file);
+                    }
+
+                    fetch(`/edit_post/${currentPostId}`, {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === "OK") {
+                            const postElement = document.querySelector(`.post[data-post-id="${currentPostId}"]`);
+                            if (postElement) {
+                                const contentElement = postElement.querySelector('.post-content');
+                                if (contentElement) {
+                                    contentElement.textContent = newContent;
+                                }
+
+                                const attachmentsContainer = postElement.querySelector('.attachments');
+                                if (attachmentsContainer) {
+                                    attachmentsContainer.innerHTML = '';
+                                    data.attachments.forEach(attachment => {
+                                        let attachmentElement;
+                                        if (attachment.file_type.startsWith('image/')) {
+                                            attachmentElement = document.createElement('img');
+                                            attachmentElement.src = `/static/uploads/${attachment.file_name}`;
+                                            attachmentElement.alt = attachment.file_name;
+                                        } else if (attachment.file_type.startsWith('video/')) {
+                                            attachmentElement = document.createElement('video');
+                                            attachmentElement.controls = true;
+                                            const source = document.createElement('source');
+                                            source.src = `/static/uploads/${attachment.file_name}`;
+                                            source.type = attachment.file_type;
+                                            attachmentElement.appendChild(source);
+                                        } else if (attachment.file_type.startsWith('audio/')) {
+                                            attachmentElement = document.createElement('audio');
+                                            attachmentElement.controls = true;
+                                            const source = document.createElement('source');
+                                            source.src = `/static/uploads/${attachment.file_name}`;
+                                            source.type = attachment.file_type;
+                                            attachmentElement.appendChild(source);
+                                        } else {
+                                            attachmentElement = document.createElement('a');
+                                            attachmentElement.href = `/download_file/${attachment.file_name}`;
+                                            attachmentElement.textContent = attachment.file_name;
+                                            attachmentElement.download = '';
+                                        }
+                                        attachmentElement.dataset.id = attachment.id;
+                                        attachmentsContainer.appendChild(attachmentElement);
+                                    });
+                                }
+                            } else {
+                                console.error(`Nie znaleziono posta o id: ${currentPostId}`);
+                            }
+
+                            editForm.style.display = 'none';
+                            overlay.style.display = 'none';
+                            alert(data.message);
+                        } else {
+                            alert(`Błąd: ${data.message}`);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert(`Wystąpił błąd podczas edycji posta: ${error.message}`);
+                    });
+                });
+                    console.error('Error:', error);
+                    alert(`Wystąpił błąd podczas edycji posta: ${error.message}`);
+                });
+
+            cancelEdit.addEventListener('click', function() {
+                editForm.style.display = 'none';
+                overlay.style.display = 'none';
+            });
+
+            editFiles.addEventListener('change', function(e) {
+                for (let file of e.target.files) {
+                    const attachmentDiv = document.createElement('div');
+                    attachmentDiv.className = 'attachment-preview';
+                    attachmentDiv.style.width = '100px';
+                    attachmentDiv.style.height = '100px';
+                    attachmentDiv.style.backgroundColor = 'blue';
+                    attachmentDiv.style.position = 'relative';
+                    attachmentDiv.style.display = 'inline-block';
+                    attachmentDiv.style.margin = '5px';
+
+                    const removeButton = document.createElement('button');
+                    removeButton.textContent = 'x';
+                    removeButton.style.position = 'absolute';
+                    removeButton.style.top = '0';
+                    removeButton.style.right = '0';
+                    removeButton.addEventListener('click', () => {
+                        attachmentDiv.remove();
+                    });
+
+                    attachmentDiv.appendChild(removeButton);
+                    existingAttachments.appendChild(attachmentDiv);
+                }
+            });
+        });
+    </script>
+
 </html>
