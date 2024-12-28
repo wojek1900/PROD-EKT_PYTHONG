@@ -39,9 +39,13 @@
     </ul>
     <form id="post-form" enctype="multipart/form-data">
         <textarea name="text" placeholder="Co słychać?"></textarea>
-        <input type="file" name="files" multiple accept="*">
+        <div class="attachments-container">
+            <label for="files">Załączniki:</label>
+            <input type="file" id="files" name="files" multiple accept="*">
+            <div id="attachments-preview"></div>
+        </div>
         <label>
-            <input type="checkbox" name="is_private" > Prywatny post
+            <input type="checkbox" name="is_private"> Prywatny post
         </label>
         <button type="submit">Wyślij</button>
     </form>
@@ -82,10 +86,7 @@
                         </audio>
                     {% else %}
                         <p>
-                            Załącznik: 
-                            <a href="{{ url_for('download_file', filename=attachment.file_name) }}" download data-id="{{ attachment.id }}">
-                               {{ attachment.file_name }}
-                            </a> 
+                            <a href="{{ url_for('download_file', attachment_id=attachment.id) }}">Pobierz {{ attachment.original_filename }}</a> 
                         </p>
                     {% endif %}
                 {% endfor %}
@@ -122,6 +123,80 @@
             const editFiles = document.getElementById('editFiles');
             let currentPostId = null;
             let currentAttachments = [];
+
+            // New code for handling attachments during post creation
+            const filesInput = document.getElementById('files');
+            const attachmentsPreview = document.getElementById('attachments-preview');
+
+            filesInput.addEventListener('change', function(e) {
+                attachmentsPreview.innerHTML = '';
+                for (let file of e.target.files) {
+                    const attachmentDiv = createAttachmentPreview(file);
+                    attachmentsPreview.appendChild(attachmentDiv);
+                }
+            });
+
+            function createAttachmentPreview(file) {
+                const attachmentDiv = document.createElement('div');
+                attachmentDiv.className = 'attachment-preview';
+                attachmentDiv.style.width = '100px';
+                attachmentDiv.style.height = '100px';
+                attachmentDiv.style.backgroundColor = 'white';
+                attachmentDiv.style.position = 'relative';
+                attachmentDiv.style.display = 'inline-block';
+                attachmentDiv.style.margin = '5px';
+
+                const removeButton = document.createElement('button');
+                removeButton.textContent = 'x';
+                removeButton.style.position = 'absolute';
+                removeButton.style.top = '0';
+                removeButton.style.right = '0';
+                removeButton.addEventListener('click', () => {
+                    attachmentDiv.remove();
+                    // Remove the file from the FileList
+                    const dt = new DataTransfer();
+                    const { files } = filesInput;
+                    for (let i = 0; i < files.length; i++) {
+                        if (files[i] !== file) {
+                            dt.items.add(files[i]);
+                        }
+                    }
+                    filesInput.files = dt.files;
+                });
+
+                if (file.type.startsWith('image/')) {
+                    const img = document.createElement('img');
+                    img.src = URL.createObjectURL(file);
+                    img.style.width = '100%';
+                    img.style.height = '100%';
+                    img.style.objectFit = 'cover';
+                    attachmentDiv.appendChild(img);
+                } else if (file.type.startsWith('video/')) {
+                    const icon = document.createElement('div');
+                    icon.textContent = '🎥';
+                    icon.style.fontSize = '40px';
+                    icon.style.textAlign = 'center';
+                    icon.style.lineHeight = '100px';
+                    attachmentDiv.appendChild(icon);
+                } else if (file.type.startsWith('audio/')) {
+                    const icon = document.createElement('div');
+                    icon.textContent = '🎵';
+                    icon.style.fontSize = '40px';
+                    icon.style.textAlign = 'center';
+                    icon.style.lineHeight = '100px';
+                    attachmentDiv.appendChild(icon);
+                } else {
+                    const icon = document.createElement('div');
+                    icon.textContent = '📎';
+                    icon.style.fontSize = '40px';
+                    icon.style.textAlign = 'center';
+                    icon.style.lineHeight = '100px';
+                    attachmentDiv.appendChild(icon);
+                }
+
+                attachmentDiv.appendChild(removeButton);
+                return attachmentDiv;
+            }
     
             posts.addEventListener('click', function(e) {
                 if (e.target.classList.contains('remove-post')) {

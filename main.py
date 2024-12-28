@@ -4,7 +4,7 @@ import logging
 import json
 from werkzeug.utils import secure_filename
 from flask_login import current_user 
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_from_directory, send_file
 from flask_security import Security, UserMixin, RoleMixin, SQLAlchemyUserDatastore
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, login_user, login_required, logout_user
@@ -64,6 +64,7 @@ class PostAttachment(db.Model):
     file_name = db.Column(db.String(255), nullable=False)
     file_path = db.Column(db.String(1024), nullable=False)
     file_type = db.Column(db.String(50), nullable=False)
+    original_filename = db.Column(db.String(255), nullable=False) 
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
 
     post = db.relationship('public_post', back_populates='post_attachments')
@@ -260,10 +261,21 @@ def add_user():
 
 
 
-@app.route('/download/<filename>')
-def download_file(filename):
+
+
+@app.route('/download/<int:attachment_id>')
+def download_file(attachment_id):
+    attachment = PostAttachment.query.get_or_404(attachment_id)
     uploads_dir = os.path.join(app.root_path, 'static', 'uploads')
-    return send_from_directory(directory=uploads_dir, path=filename, as_attachment=True)
+    file_path = os.path.join(uploads_dir, attachment.file_name)
+
+    return send_file(
+        file_path, 
+        as_attachment=True, 
+        download_name=attachment.original_filename,
+        mimetype=attachment.file_type
+    )
+
 
 
 
@@ -291,7 +303,13 @@ def add_public_post():
                 file.save(file_path)
 
                 file_type = file.content_type
-                new_attachment = PostAttachment(post_id=new_post.id, file_name=unique_filename, file_path=file_path, file_type=file_type)
+                new_attachment = PostAttachment(
+                    post_id=new_post.id, 
+                    file_name=unique_filename, 
+                    original_filename=original_filename,  # Dodajemy oryginalną nazwę
+                    file_path=file_path, 
+                    file_type=file_type
+                )
                 db.session.add(new_attachment)
 
         db.session.commit()
@@ -300,6 +318,7 @@ def add_public_post():
         db.session.rollback()
         print(f"Błąd podczas dodawania posta: {str(e)}")
         return jsonify({"message": "Wystąpił błąd podczas tworzenia posta.", "status": "ERROR"}), 500
+
 
 
 
@@ -360,7 +379,6 @@ def edit_post(post_id):
                 db.session.delete(attachment)
                 attachments_to_remove.append(attachment.file_name)
 
-
         new_files = request.files.getlist('new_files')
         new_attachments = []
         for file in new_files:
@@ -372,16 +390,19 @@ def edit_post(post_id):
                 file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
                 file.save(file_path)
 
-                new_attachment = PostAttachment(post_id=post.id, file_name=unique_filename, file_path=file_path, file_type=file.content_type)
+                new_attachment = PostAttachment(
+                    post_id=post.id, 
+                    file_name=unique_filename, 
+                    original_filename=original_filename,  # Dodajemy oryginalną nazwę
+                    file_path=file_path, 
+                    file_type=file.content_type
+                )
                 db.session.add(new_attachment)
                 new_attachments.append(original_filename)
 
-        if new_attachments:
-            flash(f"Załączniki dodane: {', '.join(new_attachments)}")
-
         db.session.commit()
 
-        updated_attachments = [{"id": att.id, "filename": att.file_name, "type": att.file_type} for att in post.post_attachments]
+        updated_attachments = [{"id": att.id, "filename": att.original_filename, "type": att.file_type} for att in post.post_attachments]
 
         return jsonify({
             "status": "OK", 
