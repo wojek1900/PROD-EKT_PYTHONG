@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 !event.target.closest('.comments') &&
                 !event.target.closest('.toggle-comments')) {
                 const postId = this.dataset.postId;
-                window.location.href = "/profile/";
+                window.location.href = "/profile.html";
             }
         });
     });
