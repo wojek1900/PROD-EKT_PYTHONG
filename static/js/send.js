@@ -67,3 +67,46 @@ function editPost(postId) {
         });
     }
 }
+function addComment(postId) {
+    const commentText = document.querySelector(`#comment-input-${postId}`).value;
+    if (!commentText) {
+        alert('Proszę wpisać treść komentarza.');
+        return;
+    }
+
+    fetch(`/add_comment/${postId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `comment_text=${encodeURIComponent(commentText)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            const commentsContainer = document.querySelector(`#comments-${postId}`);
+            const newCommentHtml = `
+                <div class="comment">
+                    <div class="comment-header">
+                        <img src="/static/basics/profile.png" alt="Default profile picture" class="profile-picture">
+                        <p class="author-name">${data.comment.author}</p>
+                    </div>
+                    <p class="comment-content">${data.comment.text}</p>
+                </div>
+            `;
+            commentsContainer.insertAdjacentHTML('beforeend', newCommentHtml);
+            document.querySelector(`#comment-input-${postId}`).value = '';
+            
+            // Aktualizacja liczby komentarzy
+            const commentButton = document.querySelector(`button[data-post-id="${postId}"]`);
+            const currentCount = parseInt(commentButton.textContent.match(/\d+/)[0]);
+            commentButton.textContent = `Komentarze (${currentCount + 1})`;
+        } else {
+            alert('Wystąpił błąd podczas dodawania komentarza.');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Wystąpił błąd podczas dodawania komentarza.');
+    });
+}

@@ -2,75 +2,45 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="static/css/styles.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Discover</title>
+    <title>{{ user.nick }}'s Profile</title>
 </head>
 <body>
-    {% with messages = get_flashed_messages() %}
-        {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-info">{{ message }}</div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
     <div class="navigation">
-        <a href="profile.html">profil</a>
-        <a href="main.html">główna</a>
+        <a href="{{ url_for('profile') }}">profil</a>
+        <a href="{{ url_for('main') }}">główna</a>
         <a href="ai.html">AI</a>
-        <a href="search.html">wyszukaj urzytkownika</a>
         <a href="private.html">prywatne</a>
         <a href="{{ url_for('logout') }}">Wyloguj się</a>
     </div>
-    <div>
-        <!--<a href="glowna">główna</a>-->
-        <a href="obesrwowane">obesrwowane</a>
-        <a href="spolecznosci">społeczności</a>
-    </div>
-    <h1>User Profile</h1>
-    <p>Witaj, {{ user.nick }}!</p>
-    <ul>
-        <li>Roles: 
-            <ul>
-                {% for role in user.roles %}
-                    <li>{{ role.name }} ({{ role.description }})</li>
-                {% endfor %}
-            </ul>
-        </li>
-    </ul>
-    <form id="post-form" enctype="multipart/form-data">
-        <textarea name="text" placeholder="Co słychać?"></textarea>
-        <div class="attachments-container">
-            <label for="files">Załączniki:</label>
-            <input type="file" id="files" name="files" multiple accept="*">
-            <div id="attachments-preview"></div>
-        </div>
-        <label>
-            <input type="checkbox" name="is_private"> Prywatny post
-            <input type="checkbox" name="no_comments"> brak komentarzy
-        </label>
-        <button type="submit">Wyślij</button>
-    </form>
 
+    <h1>Profil {{ user.nick }}</h1>
+    
+    <div class="user-info">
+        {% if user.zdjecie_wskaznik == "basics/profile.png" %}
+            <img src="{{ url_for('static', filename='basics/profile.png') }}" alt="Default profile picture" class="profile-picture">
+        {% elif user.zdjecie_wskaznik %}
+            <img src="{{ url_for('static', filename='uploads/' + user.zdjecie_wskaznik) }}" alt="{{ user.nick }}'s profile picture" class="profile-picture">
+        {% endif %}
+        {% if user.zdjecie_wskaznik and user.zdjecie_wskaznik != "static/basics/profile.png" %}
+            <a href="{{ url_for('download_avatar', user_id=user.id) }}" class="download-avatar-btn">Pobierz avatar</a>
+        {% endif %}
+        <p>Nick: {{ user.nick }}</p>
+        <p>Opis: {{ user.opis }}</p>
+    </div>
+
+    <h2>posty od {{ user.nick }}</h2>
     <div id="posts">
-        <p>POSTY</p>
         {% for post in posts %}
-            <div class="post post-clickable">
-                <a href="{{ url_for('user_profile', user_id=post.author.id) }}">
+            <div class="post">
                 <div class="post-header">
                     {% if post.author.zdjecie_wskaznik == "basics/profile.png" %}
                         <img src="{{ url_for('static', filename='basics/profile.png') }}" alt="Default profile picture" class="profile-picture">
                     {% elif post.author.zdjecie_wskaznik %}
                         <img src="{{ url_for('static', filename='uploads/' + post.author.zdjecie_wskaznik) }}" alt="{{ post.author.nick }}'s profile picture" class="profile-picture">
                     {% endif %}
-                    <p class="author-name">{{ post.author.nick }}</p>
-                </a>
-                    {% if post.author.nick == current_user.nick or current_user.has_role('admin'):%}
-                        <div class="options-public-post">
-                            <button class="remove-post" data-post-id="{{ post.id }}" value="USUN">USUN</button>
-                            <button class="edit-post" data-post-id="{{ post.id }}" value="ZMIEN">ZMIEN</button>
-                        </div>
-                    {% endif %}
+                    <span class="post-author">{{ post.author.nick }}</span>
                 </div>
                 <p class="post-content">{{ post.text }}</p>
                 <div class="attachments">
@@ -95,6 +65,7 @@
                         {% endif %}
                     {% endfor %}
                 </div>
+                <p class="post-date">Posted on: {{ post.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
                 <div class="reactions">
                     {% for reaction_type, emoji in [
                         ('like', '👍'), 
@@ -108,19 +79,10 @@
                         </button>
                     {% endfor %}
                 </div>
-                <div class="edited_post_comment">
-                    {% if post.is_edited %}
-                    Edytowany o {{ post.edited_at.strftime('%Y-%m-%d %H:%M:%S') }}
-                    {% endif %}
-                </div>
                 {% if not post.comments_allowed %}
                 <button class="toggle-comments" data-post-id="{{ post.id }}">Komentarze ({{ post.comments|length }})</button>
                 {% endif %}
                 <div class="comments" id="comments-{{ post.id }}" style="display: none;">
-                    <form class="comment-form" data-post-id="{{ post.id }}">
-                        <textarea name="comment-text" required></textarea>
-                        <button type="submit">Dodaj komentarz</button>
-                    </form>
                     {% for comment in post.post_comments %}
                     <div class="comment">
                         <div class="comment-header">
@@ -137,63 +99,8 @@
                 </div>
             </div>
         {% endfor %}
-        <div class="overlay" id="overlay"></div>
-    <div class="edit-form" id="editForm">
-        <h2>Edytuj post</h2>
-        <textarea id="editContent" rows="4" cols="50"></textarea>
-        <div class="editattachments">
-            <label for="editFiles">Załączniki:</label>
-            <div id="existingAttachments">
-            </div>
-            <input type="file" id="editFiles" multiple accept="*">
-        </div>
-        <button id="saveEdit">Zapisz</button>
-        <button id="cancelEdit">Anuluj</button>
     </div>
-    </div>
-    
-
-
-    <script src="{{ url_for('static', filename='js/send.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/edit-del.js') }}"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const commentForms = document.querySelectorAll('.comment-form');
-            
-            commentForms.forEach(form => {
-                form.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    
-                    const postId = this.getAttribute('data-post-id');
-                    const commentText = this.querySelector('textarea[name="comment-text"]').value;
-                    
-                    fetch(`/add_comment/${postId}`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                        },
-                        body: `comment-text=${encodeURIComponent(commentText)}`
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === "OK") {
-                            const toggleButton = document.querySelector(`.toggle-comments[data-post-id="${postId}"]`);
-                            const currentCount = parseInt(toggleButton.textContent.match(/\d+/)[0]);
-                            toggleButton.textContent = `Komentarze (${currentCount + 1})`;
-                            
-                            this.querySelector('textarea[name="comment-text"]').value = '';
-                        } else {
-                            alert(data.message);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert('Wystąpił błąd podczas dodawania komentarza.');
-                    });
-                });
-            });
-        });
-    </script>
+    <script src="{{ url_for('static', filename='js/hide-show-comments.js') }}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const reactionButtons = document.querySelectorAll('.reaction-btn');
@@ -235,7 +142,5 @@
             });
         });
         </script>
-<script src="{{ url_for('static', filename='js/post-przycisk.js') }}"></script>
-<script src="{{ url_for('static', filename='js/hide-show-comments.js') }}"></script>
 </body>
-</html> 
+</html>

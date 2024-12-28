@@ -1,6 +1,7 @@
 import os
 import time
 import logging
+import datetime
 import json
 from werkzeug.utils import secure_filename
 from flask_login import current_user 
@@ -30,10 +31,11 @@ login_manager.login_view = 'login'
 
 
 
-roles_users = db.Table('roles_users',
-    db.Column('user_id', db.Integer(), db.ForeignKey('user.id')),
-    db.Column('role_id', db.Integer(), db.ForeignKey('role.id'))
+user_roles = db.Table('user_roles',
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id')),
+    db.Column('role_id', db.Integer, db.ForeignKey('role.id'))
 )
+
 
 class Role(db.Model, RoleMixin):
     id = db.Column(db.Integer(), primary_key=True)
@@ -46,10 +48,22 @@ class User(db.Model, UserMixin):
     mail = db.Column(db.String(255), nullable=False, unique=True)
     password = db.Column(db.String(255), nullable=False)
     opis = db.Column(db.String(4096), nullable=True)
-    zdjecie_wskaznik = db.Column(db.String(255), nullable=False, default='static/basics/profile.png')
+    zdjecie_wskaznik = db.Column(db.String(255), nullable=False)
     fs_uniquifier = db.Column(db.String(255), unique=True, nullable=False)
     active = db.Column(db.Boolean(), default=True)
-    roles = db.relationship('Role', secondary=roles_users, backref=db.backref('users', lazy='dynamic'))
+    roles = db.relationship('Role', secondary='user_roles', backref=db.backref('users', lazy='dynamic'))
+
+    def make_admin(self):
+        self.roles.append(Role.query.filter_by(name='admin').first())
+    def remove_admin(self):
+        admin_role = Role.query.filter_by(name='admin').first()
+        if admin_role in self.roles:
+            self.roles.remove(admin_role)  
+    def has_role(self, role_name):
+        if role_name == 'admin':
+            admin_role = Role.query.filter_by(name='admin').first()
+            return admin_role in self.roles
+        return False
 
     def __init__(self, **kwargs):
         super(User, self).__init__(**kwargs)
@@ -78,11 +92,51 @@ class public_post(db.Model):
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
     author = db.relationship('User', backref=db.backref('posts', lazy=True))
     post_attachments = db.relationship('PostAttachment', back_populates='post', cascade="all, delete-orphan")
+    post_comments = db.relationship('public_comment', back_populates='post')
+    post_reactions = db.relationship('public_reaction', back_populates='post')
+    tags = db.relationship('public_tag', secondary='post_tags', backref=db.backref('posts', lazy='dynamic'))
+    edited_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+    is_edited = db.Column(db.Boolean(), default=False)
+    comments_allowed = db.Column(db.Boolean, default=True)
+    
     def __init__(self, **kwargs):
         super(public_post, self).__init__(**kwargs)
         if not self.fs_uniquifier:
             self.fs_uniquifier = str(uuid.uuid4())
 
+class public_tag(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+
+post_tags = db.Table('post_tags',
+    db.Column('post_id', db.Integer, db.ForeignKey('public_post.id'), primary_key=True),
+    db.Column('tag_id', db.Integer, db.ForeignKey('public_tag.id'), primary_key=True)
+)
+
+class public_comment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    text = db.Column(db.String(4096), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    user = db.relationship('User', backref='comments')
+    post_id = db.Column(db.Integer, db.ForeignKey('public_post.id'))
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    edited_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+    is_edited = db.Column(db.Boolean(), default=False)
+
+    user = db.relationship('User', backref=db.backref('comments', lazy=True))
+    post = db.relationship('public_post', back_populates='post_comments')
+    
+    
+class public_reaction(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    post_id = db.Column(db.Integer, db.ForeignKey('public_post.id'))
+    reaction_type = db.Column(db.String(50), nullable=False)
+
+    user = db.relationship('User', backref=db.backref('reactions', lazy=True))
+    post = db.relationship('public_post', back_populates='post_reactions')
+
+    __table_args__ = (db.UniqueConstraint('user_id', 'post_id', name='user_post_reaction_uc'),)
 
 user_datastore = SQLAlchemyUserDatastore(db, User, Role)
 security = Security(app, user_datastore)
@@ -173,7 +227,32 @@ def change_profile():
 
 
 
+@app.route('/toggle_admin/<int:user_id>', methods=['POST'])
+@login_required
+def toggle_admin(user_id):
+    user = User.query.get_or_404(user_id)
+    admin_role = Role.query.filter_by(name='admin').first()
 
+    if not admin_role:
+        #add admin role if it doesn't exist
+        admin_role = Role(name='admin')
+        db.session.add(admin_role)
+
+    if admin_role in user.roles:
+        user.roles.remove(admin_role)
+        message = f"Użytkownik {user.nick} nie jest już administratorem."
+    else:
+        user.roles.append(admin_role)
+        message = f"Użytkownik {user.nick} został mianowany administratorem."
+
+    try:
+        db.session.commit()
+        return jsonify({"status": "OK", "message": message}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "ERROR", "message": str(e)}), 500
+    
+    
 
 
 @app.route('/add_user', methods=['POST'])
@@ -187,44 +266,12 @@ def add_user():
         if not nick or not mail or not password:
             flash('Wszystkie pola są wymagane.')
             return redirect(url_for('register'))
-        if User.query.filter((User.mail == mail) | (User.nick == nick)).first():
-            flash('Email lub nick już istnieje.')
+        
+        # Sprawdzenie, czy nick zawiera znak "@"
+        if '@' in nick:
+            flash('Nick nie może zawierać znaku "@".')
             return redirect(url_for('register'))
-
-        hashed_password = generate_password_hash(password)
-        new_user = User(
-            nick=nick,
-            mail=mail,
-            password=hashed_password,
-            opis="",
-            zdjecie_wskaznik='static/basics/profile.png',
-            fs_uniquifier=str(uuid.uuid4()),
-            active=True
-        )
-        db.session.add(new_user)
-        db.session.commit()
-
-        user_role = Role.query.filter_by(name='user').first()
-        if user_role:
-            new_user.roles.append(user_role)
-            db.session.commit()
-
-        login_user(new_user)
-        return redirect(url_for('main'))
-    except Exception as e:
-        db.session.rollback()
-        print(f"Błąd podczas rejestracji: {e}")
-        flash('Wystąpił błąd podczas rejestracji.')
-        return redirect(url_for('register'))
-    try:
-        nick = request.form.get('nick')
-        mail = request.form.get('mail')
-        password = request.form.get('password')
-        print(f"nick: {nick}, mail: {mail}, password: {password}")
-
-        if not nick or not mail or not password:
-            flash('Wszystkie pola są wymagane.')
-            return redirect(url_for('register'))
+        
         if User.query.filter((User.mail == mail) | (User.nick == nick)).first():
             flash('Email lub nick już istnieje.')
             return redirect(url_for('register'))
@@ -287,9 +334,10 @@ def add_public_post():
     try:
         text = request.form.get('text')
         is_private = request.form.get('is_private') == 'on'
+        no_comments = request.form.get('no_comments') == 'on'
         files = request.files.getlist('files')
 
-        new_post = public_post(text=text, author=current_user, isprivate=is_private)
+        new_post = public_post(text=text, author=current_user, isprivate=is_private, comments_allowed=no_comments)
         db.session.add(new_post)
         db.session.flush() 
 
@@ -306,7 +354,7 @@ def add_public_post():
                 new_attachment = PostAttachment(
                     post_id=new_post.id, 
                     file_name=unique_filename, 
-                    original_filename=original_filename,  # Dodajemy oryginalną nazwę
+                    original_filename=original_filename,  
                     file_path=file_path, 
                     file_type=file_type
                 )
@@ -321,9 +369,43 @@ def add_public_post():
 
 
 
+REACTION_TYPES = ['like', 'love', 'haha', 'wow', 'sad']
 
+@app.route('/add_reaction/<int:post_id>/<string:reaction_type>', methods=['POST'])
+@login_required
+def add_reaction(post_id, reaction_type):
+    
+    
+    
+    if reaction_type not in REACTION_TYPES:
+        return jsonify({'error': 'Invalid reaction type'}), 400
 
+    existing_reaction = public_reaction.query.filter_by(user_id=current_user.id, post_id=post_id).first()
 
+    if existing_reaction:
+        if existing_reaction.reaction_type == reaction_type:
+            db.session.delete(existing_reaction)
+            db.session.commit()
+            return jsonify({'message': 'Reaction removed', 'action': 'removed'})
+        else:
+            existing_reaction.reaction_type = reaction_type
+            db.session.commit()
+            return jsonify({'message': 'Reaction updated', 'action': 'updated'})
+    else:
+        new_reaction = public_reaction(user_id=current_user.id, post_id=post_id, reaction_type=reaction_type)
+        db.session.add(new_reaction)
+        db.session.commit()
+        return jsonify({'message': 'Reaction added', 'action': 'added'})
+
+@app.route('/get_reactions/<int:post_id>', methods=['GET'])
+def get_reactions(post_id):
+    reactions = public_reaction.query.filter_by(post_id=post_id).all()
+    reaction_counts = {reaction_type: 0 for reaction_type in REACTION_TYPES}
+    
+    for reaction in reactions:
+        reaction_counts[reaction.reaction_type] += 1
+    
+    return jsonify(reaction_counts)
 
 
 
@@ -333,10 +415,6 @@ def add_public_post():
 @login_required
 def delete_post(post_id):
     post = public_post.query.get_or_404(post_id)
-    
-    if post.author != current_user:
-        return jsonify({"status": "ERROR", "message": "Nie masz uprawnień do usunięcia tego posta."}), 403
-    
     try:
         for attachment in post.post_attachments:
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], attachment.file_name)
@@ -363,24 +441,33 @@ def edit_post(post_id):
         return jsonify({"status": "ERROR", "message": "Nie masz uprawnień do edycji tego posta."}), 403
 
     try:
-        post.text = request.form.get('text')
-
+        new_text = request.form.get('text', '').strip()
         current_attachments = json.loads(request.form.get('attachments', '[]'))
-        current_attachment_ids = [att['id'] for att in current_attachments]
+        new_files = request.files.getlist('new_files')
 
+        if not new_text and not current_attachments and not new_files:
+            for attachment in post.post_attachments:
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], attachment.file_name)
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                db.session.delete(attachment)
+
+            db.session.delete(post)
+            db.session.commit()
+            return jsonify({"status": "OK", "message": "Post został usunięty, ponieważ był pusty.", "action": "deleted"}), 200
+
+        post.text = new_text
+
+        current_attachment_ids = [att['id'] for att in current_attachments]
         existing_attachments = {str(att.id): att for att in post.post_attachments}
 
-        attachments_to_remove = []
         for att_id, attachment in existing_attachments.items():
             if att_id not in current_attachment_ids:
                 file_path = os.path.join(app.config['UPLOAD_FOLDER'], attachment.file_name)
                 if os.path.exists(file_path):
                     os.remove(file_path)
                 db.session.delete(attachment)
-                attachments_to_remove.append(attachment.file_name)
 
-        new_files = request.files.getlist('new_files')
-        new_attachments = []
         for file in new_files:
             if file and file.filename:
                 original_filename = secure_filename(file.filename)
@@ -393,21 +480,23 @@ def edit_post(post_id):
                 new_attachment = PostAttachment(
                     post_id=post.id, 
                     file_name=unique_filename, 
-                    original_filename=original_filename,  # Dodajemy oryginalną nazwę
+                    original_filename=original_filename,
                     file_path=file_path, 
                     file_type=file.content_type
                 )
                 db.session.add(new_attachment)
-                new_attachments.append(original_filename)
 
+        post.is_edited = True
+        post.edited_at = datetime.datetime.now()
         db.session.commit()
 
         updated_attachments = [{"id": att.id, "filename": att.original_filename, "type": att.file_type} for att in post.post_attachments]
-
+        
         return jsonify({
             "status": "OK", 
             "message": "Post został zaktualizowany.", 
-            "attachments": updated_attachments
+            "attachments": updated_attachments,
+            "is_edited": post.is_edited
         }), 200
     except Exception as e:
         db.session.rollback()
@@ -416,10 +505,67 @@ def edit_post(post_id):
             "message": f"Wystąpił błąd podczas aktualizacji posta: {str(e)}"
         }), 500
 
+
+
+
+
+
+
+@app.route('/add_comment/<int:post_id>', methods=['POST'])
+@login_required
+def add_comment(post_id):
+    try:
+        comment_text = request.form.get('comment-text')
+        if not comment_text:
+            return jsonify({"status": "ERROR", "message": "Komentarz nie może być pusty."}), 400
+
+        new_comment = public_comment(
+            text=comment_text,
+            user_id=current_user.id, 
+            post_id=post_id,
+            created_at=datetime.datetime.now(),
+            user=current_user
+        )
+        db.session.add(new_comment)
+        db.session.commit()
+
+        return jsonify({"status": "OK", "message": "Komentarz został dodany."}), 200
+    except Exception as e:
+        db.session.rollback()
+        print(f"Błąd podczas dodawania komentarza: {str(e)}")
+        return jsonify({"status": "ERROR", "message": "Wystąpił błąd podczas dodawania komentarza."}), 500
+
+
+@app.route('/download_avatar/<int:user_id>')
+@login_required
+def download_avatar(user_id):
+    user = User.query.get_or_404(user_id)
+    if user.zdjecie_wskaznik and user.zdjecie_wskaznik != "basics/profile.png":
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], user.zdjecie_wskaznik)
+        return send_file(file_path, as_attachment=True)
+    else:
+        return send_file("static/basics/profile.png", as_attachment=True)
+
+
+
+@app.route('/user/<int:user_id>')
+@login_required
+def user_profile(user_id):
+    user = User.query.get_or_404(user_id)
+    posts = public_post.query.filter_by(author=user).order_by(public_post.created_at.desc()).all()
+    return render_template('user_profile.html', user=user, posts=posts)   
     
     
-    
-    
+@app.route('/search.html', methods=['GET', 'POST'])
+@login_required
+def search():
+    if request.method == 'POST':
+        search_query = request.form.get('search_query')
+        users = User.query.filter(User.nick.ilike(f'%{search_query}%')).all()
+        return render_template('search.html', users=users, search_performed=True)
+    return render_template('search.html')
+  
+
 @app.route('/logout')
 @login_required
 def logout():
@@ -440,7 +586,9 @@ if __name__ == "__main__":
 
 
     
-    
+
+# poprawić profil urzytkownika rzeby tam też była opcja dodania komentarza i usunięcia oraz zmienienia
+
 ################################################################
 # co trzeba zrobić, aby ładnie wyglądało:
 # - naprawić aby flask działał z fetch
@@ -450,18 +598,12 @@ if __name__ == "__main__":
 # - przywrócić system particle pozbywając się problemu z zapychaniemie pamięci oraz dodać opcje kliknięcia aby zmienić mouseForce na -10
 ################################################################
 # co zrobić aby wszystko działało:
-# - dodać sprawdzanie danych w formularzach rejestracji i logowania nick nie może mieć @
-# - zrobić wyszukiwarkę po nicku
-# - dodanie systemu rang jak admin itd
-# - zrobić bazy danych do wszystkich wiadomości które bedą zlinkowane z innymi bazami danych do koemntarzy
-# - dodać opcję pobierania avatara
 # - dodać opcję robienia grup
 # - dodać opcję dołączenia do grup
 # - dodać opcję usuwania z grup
 # - dodać opcje pisania wiadomości do urzytkowników w grupach i prywatnych
 # - powiadomienia o nowych wiadomościach
 # - zlinkowanie AI jak llama czy qwen do analizy komentarzy i danych
-# - reakcje do postów
 # - zrobienie wykresów z danych postów
 # - zrobienie wyszukiwarki po tagach
 # - dodać tło main z particlejs z configu lub dodać tło takie z wodą na doel i kursurem robiącym efekt distortion

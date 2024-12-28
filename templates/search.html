@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wyszukaj użytkownika</title>
+</head>
+<body>
+    <div class="navigation">
+        <a href="{{ url_for('profile') }}">profil</a>
+        <a href="{{ url_for('main') }}">główna</a>
+        <a href="ai.html">AI</a>
+        <a href="{{ url_for('search') }}">wyszukaj użytkownika</a>
+        <a href="private.html">prywatne</a>
+        <a href="{{ url_for('logout') }}">Wyloguj się</a>
+    </div>
+
+    <div id="content">
+        <h1>Wyszukaj użytkownika</h1>
+
+        <form id="search-form" method="POST" action="{{ url_for('search') }}">
+            <input type="text" name="search_query" placeholder="Wpisz nazwę użytkownika" required>
+            <button type="submit">Szukaj</button>
+        </form>
+
+        <div id="search-results">
+            {% if users %}
+                <h2>Wyniki wyszukiwania:</h2>
+                <ul>
+                    {% for user in users %}
+                        <li>
+                            <a href="{{ url_for('user_profile', user_id=user.id) }}">
+                                {% if user.zdjecie_wskaznik == "basics/profile.png" %}
+                                <img src="{{ url_for('static', filename='basics/profile.png') }}" alt="Default profile picture" class="profile-picture">
+                                {% else %}
+                                    <img src="{{ url_for('static', filename='uploads/' + user.zdjecie_wskaznik) }}" alt="{{ user.nick }}'s profile picture" class="profile-picture">
+                                {% endif %}
+                                {{ user.nick }}
+                            </a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% elif search_performed %}
+                <p>Nie znaleziono użytkowników.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('search-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            
+            fetch('{{ url_for("search") }}', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const newResults = doc.getElementById('search-results');
+                document.getElementById('search-results').innerHTML = newResults.innerHTML;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        });
+    </script>
+</body>
+</html>
