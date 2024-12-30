@@ -509,6 +509,14 @@ def edit_post(post_id):
 
 
 
+@app.route('/post/<int:post_id>')
+@login_required
+def view_post(post_id):
+    post = public_post.query.get_or_404(post_id)
+    return render_template('post.html', post=post)
+
+
+
 
 
 @app.route('/add_comment/<int:post_id>', methods=['POST'])
@@ -517,6 +525,7 @@ def add_comment(post_id):
     try:
         comment_text = request.form.get('comment-text')
         if not comment_text:
+            print(comment_text)
             return jsonify({"status": "ERROR", "message": "Komentarz nie może być pusty."}), 400
 
         new_comment = public_comment(
@@ -606,6 +615,5 @@ if __name__ == "__main__":
 # - zlinkowanie AI jak llama czy qwen do analizy komentarzy i danych
 # - zrobienie wykresów z danych postów
 # - zrobienie wyszukiwarki po tagach
-# - dodać tło main z particlejs z configu lub dodać tło takie z wodą na doel i kursurem robiącym efekt distortion
 # - jak wszystko się uda sprubować urzywając tensorflowa wybierać trafne treści dla urzytkownika
 ###

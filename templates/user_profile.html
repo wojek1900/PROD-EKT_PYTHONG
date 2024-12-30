@@ -79,27 +79,40 @@
                         </button>
                     {% endfor %}
                 </div>
+                <div class="edited_post_comment">
+                    {% if post.is_edited %}
+                    Edytowany o {{ post.edited_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                    {% endif %}
+                </div>
                 {% if not post.comments_allowed %}
                 <button class="toggle-comments" data-post-id="{{ post.id }}">Komentarze ({{ post.comments|length }})</button>
-                {% endif %}
                 <div class="comments" id="comments-{{ post.id }}" style="display: none;">
                     {% for comment in post.post_comments %}
-                    <div class="comment">
-                        <div class="comment-header">
-                            {% if comment.user.zdjecie_wskaznik == "basics/profile.png" %}
-                            <img src="{{ url_for('static', filename='basics/profile.png') }}" alt="Default profile picture" class="profile-picture">
-                            {% else %}
-                            <img src="{{ url_for('static', filename='uploads/' + comment.user.zdjecie_wskaznik) }}" alt="{{ comment.user.nick }}'s profile picture" class="profile-picture">
-                            {% endif %}
-                            <p class="author-name">{{ comment.user.nick }}</p>
+                        <div class="comment">
+                            <div class="comment-header">
+                                {% if comment.user.zdjecie_wskaznik == "basics/profile.png" %}
+                                <img src="{{ url_for('static', filename='basics/profile.png') }}" alt="Default profile picture" class="profile-picture">
+                                {% else %}
+                                <img src="{{ url_for('static', filename='uploads/' + comment.user.zdjecie_wskaznik) }}" alt="{{ comment.user.nick }}'s profile picture" class="profile-picture">
+                                {% endif %}
+                                <p class="author-name">{{ comment.user.nick }}</p>
+                            </div>
+                            <p class="comment-content">{{ comment.text }}</p>
                         </div>
-                        <p class="comment-content">{{ comment.text }}</p>
-                    </div>
                     {% endfor %}
+                        <form class="comment-form" data-post-id="{{ post.id }}">
+                            <textarea name="comment-text" placeholder="Dodaj komentarz..." required></textarea>
+                            <button type="submit">Wyślij</button>
+                        </form>
+                    </div>
+                    {% else %}
+                    <p style="color: red;" >Komentarze niedozwolone</p>
+                    {% endif %}
                 </div>
             </div>
         {% endfor %}
     </div>
+
     <script src="{{ url_for('static', filename='js/hide-show-comments.js') }}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -141,6 +154,44 @@
                 updateReactionCounts(postId);
             });
         });
+        </script>
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const commentForms = document.querySelectorAll('.comment-form');
+                
+                commentForms.forEach(form => {
+                    form.addEventListener('submit', function(e) {
+                        e.preventDefault();
+                        
+                        const postId = this.getAttribute('data-post-id');
+                        const commentText = this.querySelector('textarea[name="comment-text"]').value;
+                        
+                        fetch(`/add_comment/${postId}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                            },
+                            body: `comment-text=${encodeURIComponent(commentText)}`
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === "OK") {
+                                const toggleButton = document.querySelector(`.toggle-comments[data-post-id="${postId}"]`);
+                                const currentCount = parseInt(toggleButton.textContent.match(/\d+/)[0]);
+                                toggleButton.textContent = `Komentarze (${currentCount + 1})`;
+                                
+                                this.querySelector('textarea[name="comment-text"]').value = '';
+                            } else {
+                                alert(data.message);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('Wystąpił błąd podczas dodawania komentarza.');
+                        });
+                    });
+                });
+            });
         </script>
 </body>
 </html>

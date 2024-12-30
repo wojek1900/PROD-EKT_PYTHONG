@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Post by {{ post.author.nick }}</title>
+</head>
+<body>
+    <div class="navigation">
+        <a href="{{ url_for('profile') }}">profil</a>
+        <a href="{{ url_for('main') }}">główna</a>
+        <a href="ai.html">AI</a>
+        <a href="{{ url_for('search') }}">wyszukaj urzytkownika</a>
+        <a href="private.html">prywatne</a>
+        <a href="{{ url_for('logout') }}">Wyloguj się</a>
+    </div>
+
+    <div class="post">
+        <div class="post-header">
+            {% if post.author.zdjecie_wskaznik == "basics/profile.png" %}
+                <img src="{{ url_for('static', filename='basics/profile.png') }}" alt="Default profile picture" class="profile-picture">
+            {% elif post.author.zdjecie_wskaznik %}
+                <img src="{{ url_for('static', filename='uploads/' + post.author.zdjecie_wskaznik) }}" alt="{{ post.author.nick }}'s profile picture" class="profile-picture">
+            {% endif %}
+            <p class="author-name">{{ post.author.nick }}</p>
+        </div>
+        <p class="post-content">{{ post.text }}</p>
+        <div class="attachments">
+            {% for attachment in post.post_attachments %}
+                {% if attachment.file_type.startswith('image/') %}
+                    {% set image_path = 'uploads/' + attachment.file_name %}
+                    <img src="{{ url_for('static', filename=image_path) }}" alt="{{ attachment.file_name }}" data-id="{{ attachment.id }}">
+                {% elif attachment.file_type.startswith('video/') %}
+                    {% set video_path = 'uploads/' + attachment.file_name %}
+                    <video controls data-id="{{ attachment.id }}">
+                        <source src="{{ url_for('static', filename=video_path) }}" type="{{ attachment.file_type }}">
+                    </video>
+                {% elif attachment.file_type.startswith('audio/') %}
+                    {% set audio_path = 'uploads/' + attachment.file_name %}
+                    <audio controls data-id="{{ attachment.id }}">
+                        <source src="{{ url_for('static', filename=audio_path) }}" type="{{ attachment.file_type }}">
+                    </audio>
+                {% else %}
+                    <p>
+                        <a href="{{ url_for('download_file', attachment_id=attachment.id) }}">Pobierz {{ attachment.original_filename }}</a> 
+                    </p>
+                {% endif %}
+            {% endfor %}
+        </div>
+        <div class="reactions">
+            {% for reaction_type, emoji in [
+                ('like', '👍'), 
+                ('love', '❤️'), 
+                ('haha', '😂'), 
+                ('wow', '😮'), 
+                ('sad', '😢')
+            ] %}
+                <button class="reaction-btn" data-post-id="{{ post.id }}" data-reaction-type="{{ reaction_type }}">
+                    {{ emoji }} <span class="reaction-count" id="count-{{ post.id }}-{{ reaction_type }}">0</span>
+                </button>
+            {% endfor %}
+        </div>
+        <div class="edited_post_comment">
+            {% if post.is_edited %}
+            Edytowany o {{ post.edited_at.strftime('%Y-%m-%d %H:%M:%S') }}
+            {% endif %}
+        </div>
+        {% if not post.comments_allowed %}
+            <button class="toggle-comments" data-post-id="{{ post.id }}">Komentarze ({{ post.comments|length }})</button>
+            {% endif %}
+            <div class="comments" id="comments-{{ post.id }}" style="display: none;">
+                <form class="comment-form" data-post-id="{{ post.id }}">
+                    <textarea name="comment-text" required></textarea>
+                    <button type="submit">Dodaj komentarz</button>
+                </form>
+                {% for comment in post.post_comments %}
+                <div class="comment">
+                    <div class="comment-header">
+                        {% if comment.user.zdjecie_wskaznik == "basics/profile.png" %}
+                        <img src="{{ url_for('static', filename='basics/profile.png') }}" alt="Default profile picture" class="profile-picture">
+                        {% else %}
+                        <img src="{{ url_for('static', filename='uploads/' + comment.user.zdjecie_wskaznik) }}" alt="{{ comment.user.nick }}'s profile picture" class="profile-picture">
+                        {% endif %}
+                        <p class="author-name">{{ comment.user.nick }}</p>
+                    </div>
+                    <p class="comment-content">{{ comment.text }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/send.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/edit-del.js') }}"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const commentForm = document.querySelector('.comment-form');
+        const commentsContainer = document.querySelector('.comments');
+
+        commentForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const postId = this.getAttribute('data-post-id');
+            const commentText = this.querySelector('textarea[name="comment-text"]').value;
+
+            fetch(`/add_comment/${postId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `comment-text=${encodeURIComponent(commentText)}`
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                this.querySelector('textarea[name="comment-text"]').value = '';
+
+                const newComment = document.createElement('div');
+                newComment.className = 'comment';
+                newComment.innerHTML = `
+                    <div class="comment-header">
+                        <img src="${data.user_avatar}" alt="${data.user_nick}'s profile picture" class="profile-picture">
+                        <p class="author-name">${data.user_nick}</p>
+                    </div>
+                    <p class="comment-content">${data.comment_text}</p>
+                `;
+                commentsContainer.insertBefore(newComment, commentsContainer.firstChild);
+
+                const commentCount = document.querySelector('h3');
+                if (commentCount) {
+                    const currentCount = parseInt(commentCount.textContent.match(/\d+/)[0]);
+                    commentCount.textContent = `Komentarze (${currentCount + 1})`;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Wystąpił błąd podczas dodawania komentarza. Spróbuj ponownie.');
+            });
+        });
+    });
+    </script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const reactionButtons = document.querySelectorAll('.reaction-btn');
+        
+            reactionButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const postId = this.dataset.postId;
+                    const reactionType = this.dataset.reactionType;
+        
+                    fetch(`/add_reaction/${postId}/${reactionType}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        updateReactionCounts(postId);
+                    });
+                });
+            });
+        
+            function updateReactionCounts(postId) {
+                fetch(`/get_reactions/${postId}`)
+                .then(response => response.json())
+                .then(data => {
+                    for (const [reactionType, count] of Object.entries(data)) {
+                        const countElement = document.getElementById(`count-${postId}-${reactionType}`);
+                        if (countElement) {
+                            countElement.textContent = count;
+                        }
+                    }
+                });
+            }
+        
+            document.querySelectorAll('.post').forEach(post => {
+                const postId = post.querySelector('.reaction-btn').dataset.postId;
+                updateReactionCounts(postId);
+            });
+        });
+        </script>
+        
+<script src="{{ url_for('static', filename='js/hide-show-comments.js') }}"></script>
+</body>
+</html>
