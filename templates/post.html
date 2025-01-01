@@ -48,6 +48,13 @@
                 {% endif %}
             {% endfor %}
         </div>
+        
+        <div class="tags">
+            <p>Tagi:</p>
+            {% for tag in post.get_tags() %}
+                <p class="tag">{{ tag }}</p>
+            {% endfor %}
+        </div>
         <div class="reactions">
             {% for reaction_type, emoji in [
                 ('like', '👍'), 
@@ -65,6 +72,11 @@
             {% if post.is_edited %}
             Edytowany o {{ post.edited_at.strftime('%Y-%m-%d %H:%M:%S') }}
             {% endif %}
+        </div>
+        <div class="post-statistics">
+            <h4>Statystyki reakcji</h4>
+            <canvas id="reactionChart-{{ post.id }}" width="300" height="100"></canvas>
+            <p>Liczba komentarzy: <span id="commentCount-{{ post.id }}">{{ post.post_comments|length }}</span></p>
         </div>
         {% if not post.comments_allowed %}
             <button class="toggle-comments" data-post-id="{{ post.id }}">Komentarze ({{ post.comments|length }})</button>
@@ -93,6 +105,101 @@
 
     <script src="{{ url_for('static', filename='js/send.js') }}"></script>
     <script src="{{ url_for('static', filename='js/edit-del.js') }}"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const reactionButtons = document.querySelectorAll('.reaction-btn');
+                const postId = reactionButtons[0].dataset.postId;
+                let chart;
+        
+                function createOrUpdateChart(data) {
+                    const ctx = document.getElementById(`reactionChart-${postId}`).getContext('2d');
+                    const labels = ['like', 'love', 'haha', 'wow', 'sad'];
+                    const values = labels.map(label => data[label] || 0);
+        
+                    if (chart) {
+                        chart.data.datasets[0].data = values;
+                        chart.update();
+                    } else {
+                        chart = new Chart(ctx, {
+                            type: 'bar',
+                            data: {
+                                labels: labels,
+                                datasets: [{
+                                    label: 'Reakcje',
+                                    data: values,
+                                    backgroundColor: [
+                                        'rgba(255, 99, 132, 0.5)',
+                                        'rgba(54, 162, 235, 0.5)',
+                                        'rgba(255, 206, 86, 0.5)',
+                                        'rgba(75, 192, 192, 0.5)',
+                                        'rgba(153, 102, 255, 0.5)'
+                                    ],
+                                    borderColor: [
+                                        'rgba(255, 99, 132, 1)',
+                                        'rgba(54, 162, 235, 1)',
+                                        'rgba(255, 206, 86, 1)',
+                                        'rgba(75, 192, 192, 1)',
+                                        'rgba(153, 102, 255, 1)'
+                                    ],
+                                    borderWidth: 1
+                                }]
+                            },
+                            options: {
+                                scales: {
+                                    y: {
+                                        beginAtZero: true,
+                                        ticks: {
+                                            stepSize: 1
+                                        }
+                                    }
+                                },
+                                plugins: {
+                                    legend: {
+                                        display: false
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+        
+                function updateReactionCounts(postId) {
+                    fetch(`/get_reactions/${postId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        for (const [reactionType, count] of Object.entries(data)) {
+                            const countElement = document.getElementById(`count-${postId}-${reactionType}`);
+                            if (countElement) {
+                                countElement.textContent = count;
+                            }
+                        }
+                        createOrUpdateChart(data);
+                    });
+                }
+        
+                reactionButtons.forEach(button => {
+                    button.addEventListener('click', function() {
+                        const postId = this.dataset.postId;
+                        const reactionType = this.dataset.reactionType;
+        
+                        fetch(`/add_reaction/${postId}/${reactionType}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            updateReactionCounts(postId);
+                        });
+                    });
+                });
+        
+                updateReactionCounts(postId);
+            });
+        </script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         const commentForm = document.querySelector('.comment-form');

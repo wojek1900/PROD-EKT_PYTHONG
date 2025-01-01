@@ -612,3 +612,45 @@
 .comment-form button:hover {
     background-color: #72d7ff;
 }
+
+
+
+.user-actions {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+
+.action-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.3s ease;
+}
+
+.follow-btn {
+    background-color: #1DA1F2;
+    color: white;
+}
+
+.follow-btn:hover {
+    background-color: #0d8ecf;
+}
+
+.friend-btn {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.friend-btn:hover {
+    background-color: #45a049;
+}
+
+.tags{
+    background-color: #FFCCCB;
+}
+
+

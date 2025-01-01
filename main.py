@@ -1,13 +1,14 @@
 import os
 import time
 import logging
-import datetime
 import json
+from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
 from flask_login import current_user 
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_from_directory, send_file
 from flask_security import Security, UserMixin, RoleMixin, SQLAlchemyUserDatastore
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import relationship
 from flask_login import LoginManager, login_user, login_required, logout_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -42,6 +43,17 @@ class Role(db.Model, RoleMixin):
     name = db.Column(db.String(80), unique=True)
     description = db.Column(db.String(255))
 
+
+friendships = db.Table('friendships',
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
+    db.Column('friend_id', db.Integer, db.ForeignKey('user.id'), primary_key=True)
+)
+
+followers = db.Table('followers',
+    db.Column('follower_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
+    db.Column('followed_id', db.Integer, db.ForeignKey('user.id'), primary_key=True)
+)
+
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     nick = db.Column(db.String(100), nullable=False, unique=True)
@@ -53,6 +65,23 @@ class User(db.Model, UserMixin):
     active = db.Column(db.Boolean(), default=True)
     roles = db.relationship('Role', secondary='user_roles', backref=db.backref('users', lazy='dynamic'))
 
+    friends = db.relationship(
+        'User', 
+        secondary=friendships,
+        primaryjoin=(friendships.c.user_id == id),
+        secondaryjoin=(friendships.c.friend_id == id),
+        backref=db.backref('friended_by', lazy='dynamic'),
+        lazy='dynamic'
+    )
+
+    followers = db.relationship(
+        'User', 
+        secondary=followers,
+        primaryjoin=(followers.c.followed_id == id),
+        secondaryjoin=(followers.c.follower_id == id),
+        backref=db.backref('following', lazy='dynamic'),
+        lazy='dynamic'
+    )
     def make_admin(self):
         self.roles.append(Role.query.filter_by(name='admin').first())
     def remove_admin(self):
@@ -65,12 +94,150 @@ class User(db.Model, UserMixin):
             return admin_role in self.roles
         return False
 
+    def add_friend(self, user):
+        if not self.is_friend(user):
+            self.friends.append(user)
+            user.friends.append(self)
+
+    def remove_friend(self, user):
+        if self.is_friend(user):
+            self.friends.remove(user)
+            user.friends.remove(self)
+
+    def is_friend(self, user):
+        return self.friends.filter(friendships.c.friend_id == user.id).count() > 0
+
+    def follow(self, user):
+        if not self.is_following(user):
+            self.following.append(user)
+
+    def unfollow(self, user):
+        if self.is_following(user):
+            self.following.remove(user)
+
+    def is_following(self, user_id):
+        if isinstance(user_id, int):
+            return self.following.filter(followers.c.followed_id == user_id).count() > 0
+        elif isinstance(user_id, User):
+            return self.following.filter(followers.c.followed_id == user_id.id).count() > 0
+        else:
+            return False
+
     def __init__(self, **kwargs):
         super(User, self).__init__(**kwargs)
         if not self.fs_uniquifier:
             self.fs_uniquifier = str(uuid.uuid4())
         if not self.zdjecie_wskaznik:
             self.zdjecie_wskaznik = 'basics/profile.png'
+
+
+
+class Group(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    zdjecie_wskaznik = db.Column(db.String(255), nullable=False)
+    join_code = db.Column(db.String(10), unique=True, nullable=False)
+    users = db.relationship('User', secondary='group_users', backref=db.backref('groups', lazy='dynamic'))
+    messages = db.relationship('GroupMessage', backref='group', lazy='dynamic', cascade="all, delete-orphan")
+    reactions = db.relationship('GroupReaction', backref='group', lazy='dynamic', cascade="all, delete-orphan")
+    attachments = db.relationship('GroupAttachment', backref='group', lazy='dynamic', cascade="all, delete-orphan")
+
+    def generate_join_code(self):
+        return ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
+
+    def __init__(self, **kwargs):
+        super(Group, self).__init__(**kwargs)
+        if not self.join_code:
+            self.join_code = self.generate_join_code()
+            
+            
+            
+
+class GroupUser(db.Model):
+    __tablename__ = 'group_users'
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    joined_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+
+class GroupMessage(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    message = db.Column(db.String(4096), nullable=False)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    edited_at = db.Column(db.DateTime, onupdate=db.func.current_timestamp())
+    is_edited = db.Column(db.Boolean, default=False)
+
+    user = db.relationship('User', backref=db.backref('group_messages', lazy='dynamic'))
+
+class GroupReaction(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    message_id = db.Column(db.Integer, db.ForeignKey('group_message.id'), nullable=False)
+    reaction_type = db.Column(db.String(50), nullable=False)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+
+    user = db.relationship('User', backref=db.backref('group_reactions', lazy='dynamic'))
+    message = db.relationship('GroupMessage', backref=db.backref('reactions', lazy='dynamic'))
+
+class GroupAttachment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    message_id = db.Column(db.Integer, db.ForeignKey('group_message.id'), nullable=False)
+    file_name = db.Column(db.String(255), nullable=False)
+    file_path = db.Column(db.String(1024), nullable=False)
+    file_type = db.Column(db.String(50), nullable=False)
+    original_filename = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+
+    user = db.relationship('User', backref=db.backref('group_attachments', lazy='dynamic'))
+    message = db.relationship('GroupMessage', backref=db.backref('attachments', lazy='dynamic'))
+    
+    
+    
+class PrivateMessage(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    recipient_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    attachments = db.relationship('PrivateMessageAttachment', back_populates='private_message', lazy='dynamic')
+
+    sender = db.relationship('User', foreign_keys=[sender_id], backref=db.backref('sent_messages', lazy='dynamic'))
+    recipient = db.relationship('User', foreign_keys=[recipient_id], backref=db.backref('received_messages', lazy='dynamic'))
+    reactions = db.relationship('PrivateMessageReaction', back_populates='private_message', cascade="all, delete-orphan")
+
+    
+
+class PrivateMessageAttachment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    message_id = db.Column(db.Integer, db.ForeignKey('private_message.id'), nullable=False)
+    file_name = db.Column(db.String(255), nullable=False)
+    file_path = db.Column(db.String(1024), nullable=False)
+    file_type = db.Column(db.String(50), nullable=False)
+    original_filename = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    
+    private_message = db.relationship('PrivateMessage', back_populates='attachments')
+
+
+    
+class PrivateMessageReaction(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    message_id = db.Column(db.Integer, db.ForeignKey('private_message.id'), nullable=False)
+    reaction_type = db.Column(db.String(50), nullable=False)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+
+    user = db.relationship('User', backref=db.backref('private_message_reactions', lazy='dynamic'))
+    private_message = db.relationship('PrivateMessage', back_populates='reactions')
+
+    
+    
 
 class PostAttachment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -83,6 +250,15 @@ class PostAttachment(db.Model):
 
     post = db.relationship('public_post', back_populates='post_attachments')
 
+
+
+class Tag(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    post_tags = db.Table('post_tags',
+    db.Column('post_id', db.Integer, db.ForeignKey('public_post.id'), primary_key=True),
+    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True)
+)
 class public_post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     text = db.Column(db.String(4096), nullable=False)
@@ -98,20 +274,29 @@ class public_post(db.Model):
     edited_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
     is_edited = db.Column(db.Boolean(), default=False)
     comments_allowed = db.Column(db.Boolean, default=True)
-    
+    tags = db.relationship('Tag', secondary='post_tags', backref=db.backref('posts', lazy='dynamic'))
+
+    def add_tag(self, tag_name):
+        tag = Tag.query.filter_by(name=tag_name).first()
+        if not tag:
+            tag = Tag(name=tag_name)
+            db.session.add(tag)
+        if tag not in self.tags:
+            self.tags.append(tag)
+
+    def remove_tag(self, tag_name):
+        tag = Tag.query.filter_by(name=tag_name).first()
+        if tag and tag in self.tags:
+            self.tags.remove(tag)
+
+    def get_tags(self):
+        return [tag.name for tag in self.tags]
+
     def __init__(self, **kwargs):
         super(public_post, self).__init__(**kwargs)
         if not self.fs_uniquifier:
             self.fs_uniquifier = str(uuid.uuid4())
 
-class public_tag(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), unique=True, nullable=False)
-
-post_tags = db.Table('post_tags',
-    db.Column('post_id', db.Integer, db.ForeignKey('public_post.id'), primary_key=True),
-    db.Column('tag_id', db.Integer, db.ForeignKey('public_tag.id'), primary_key=True)
-)
 
 class public_comment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -125,8 +310,8 @@ class public_comment(db.Model):
 
     user = db.relationship('User', backref=db.backref('comments', lazy=True))
     post = db.relationship('public_post', back_populates='post_comments')
-    
-    
+
+
 class public_reaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
@@ -186,7 +371,22 @@ def register():
 @app.route("/main.html")
 @login_required
 def main():
-    return render_template("main.html", user=current_user, posts=public_post.query.filter_by(isprivate=False).order_by(public_post.created_at.desc()).all())
+    search_query = request.args.get('search_query', '')
+    search_type = request.args.get('search_type', 'post_text')
+
+    posts_query = public_post.query
+
+    if search_query:
+        if search_type == 'tag':
+            posts_query = posts_query.filter(public_post.tags.any(Tag.name.ilike(f'%{search_query}%')))
+        else:
+            posts_query = posts_query.filter(public_post.text.ilike(f'%{search_query}%'))
+
+    posts = posts_query.order_by(public_post.created_at.desc()).all()
+    return render_template('main.html', user=current_user, posts=posts, search_query=search_query, search_type=search_type)
+
+
+
 
 @app.route("/profile.html")
 @login_required
@@ -251,8 +451,8 @@ def toggle_admin(user_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "ERROR", "message": str(e)}), 500
-    
-    
+
+
 
 
 @app.route('/add_user', methods=['POST'])
@@ -266,12 +466,12 @@ def add_user():
         if not nick or not mail or not password:
             flash('Wszystkie pola są wymagane.')
             return redirect(url_for('register'))
-        
+
         # Sprawdzenie, czy nick zawiera znak "@"
         if '@' in nick:
             flash('Nick nie może zawierać znaku "@".')
             return redirect(url_for('register'))
-        
+
         if User.query.filter((User.mail == mail) | (User.nick == nick)).first():
             flash('Email lub nick już istnieje.')
             return redirect(url_for('register'))
@@ -336,8 +536,16 @@ def add_public_post():
         is_private = request.form.get('is_private') == 'on'
         no_comments = request.form.get('no_comments') == 'on'
         files = request.files.getlist('files')
+        tags = request.form.get('tags', '').split(',')
 
         new_post = public_post(text=text, author=current_user, isprivate=is_private, comments_allowed=no_comments)
+
+        for tag in tags:
+            tag = tag.strip()
+            if tag:
+                new_post.add_tag(tag)
+
+
         db.session.add(new_post)
         db.session.flush() 
 
@@ -369,14 +577,15 @@ def add_public_post():
 
 
 
+
 REACTION_TYPES = ['like', 'love', 'haha', 'wow', 'sad']
 
 @app.route('/add_reaction/<int:post_id>/<string:reaction_type>', methods=['POST'])
 @login_required
 def add_reaction(post_id, reaction_type):
-    
-    
-    
+
+
+
     if reaction_type not in REACTION_TYPES:
         return jsonify({'error': 'Invalid reaction type'}), 400
 
@@ -397,14 +606,16 @@ def add_reaction(post_id, reaction_type):
         db.session.commit()
         return jsonify({'message': 'Reaction added', 'action': 'added'})
 
+
+
 @app.route('/get_reactions/<int:post_id>', methods=['GET'])
 def get_reactions(post_id):
     reactions = public_reaction.query.filter_by(post_id=post_id).all()
     reaction_counts = {reaction_type: 0 for reaction_type in REACTION_TYPES}
-    
+
     for reaction in reactions:
         reaction_counts[reaction.reaction_type] += 1
-    
+
     return jsonify(reaction_counts)
 
 
@@ -421,14 +632,14 @@ def delete_post(post_id):
             if os.path.exists(file_path):
                 os.remove(file_path)
             db.session.delete(attachment)
-        
+
         db.session.delete(post)
         db.session.commit()
         return jsonify({"status": "OK", "message": "Post został pomyślnie usunięty."}), 200
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "ERROR", "message": f"Wystąpił błąd podczas usuwania posta: {str(e)}"}), 500    
-    
+
 
 
 
@@ -487,7 +698,7 @@ def edit_post(post_id):
                 db.session.add(new_attachment)
 
         post.is_edited = True
-        post.edited_at = datetime.datetime.now()
+        post.edited_at = datetime.utcnow().now()
         db.session.commit()
 
         updated_attachments = [{"id": att.id, "filename": att.original_filename, "type": att.file_type} for att in post.post_attachments]
@@ -504,6 +715,10 @@ def edit_post(post_id):
             "status": "ERROR", 
             "message": f"Wystąpił błąd podczas aktualizacji posta: {str(e)}"
         }), 500
+
+
+
+
 
 
 
@@ -532,7 +747,7 @@ def add_comment(post_id):
             text=comment_text,
             user_id=current_user.id, 
             post_id=post_id,
-            created_at=datetime.datetime.now(),
+            created_at=datetime.utcnow().now(),
             user=current_user
         )
         db.session.add(new_comment)
@@ -563,8 +778,20 @@ def user_profile(user_id):
     user = User.query.get_or_404(user_id)
     posts = public_post.query.filter_by(author=user).order_by(public_post.created_at.desc()).all()
     return render_template('user_profile.html', user=user, posts=posts)   
-    
-    
+
+
+
+
+
+
+@app.route('/following.html')
+@login_required
+def following():
+    return render_template('following.html',user=current_user, posts=public_post.query.filter_by(isprivate=False).order_by(public_post.created_at.desc()).all())
+
+
+
+
 @app.route('/search.html', methods=['GET', 'POST'])
 @login_required
 def search():
@@ -573,13 +800,373 @@ def search():
         users = User.query.filter(User.nick.ilike(f'%{search_query}%')).all()
         return render_template('search.html', users=users, search_performed=True)
     return render_template('search.html')
-  
+
+@app.route('/follow/<int:user_id>', methods=['POST'])
+@login_required
+def follow_user(user_id):
+    user = User.query.get_or_404(user_id)
+    if current_user.is_following(user):
+        current_user.unfollow(user)
+        db.session.commit()
+        flash('Przestałeś obserwować użytkownika.', 'success')
+    else:
+        current_user.follow(user)
+        db.session.commit()
+        flash('Zacząłeś obserwować użytkownika.', 'success')
+    return redirect(url_for('user_profile', user_id=user_id))
+
+
+
+
+
+@app.route('/add_friend/<int:user_id>', methods=['POST'])
+@login_required
+def add_friend(user_id):
+    user = User.query.get_or_404(user_id)
+    if current_user.is_friend(user):
+        current_user.remove_friend(user)
+        db.session.commit()
+        flash('Usunięto z listy przyjaciół.', 'success')
+    else:
+        current_user.add_friend(user)
+        db.session.commit()
+        flash('Dodano do listy przyjaciół.', 'success')
+    return redirect(url_for('user_profile', user_id=user_id))
+
+
+
+
+
+
 
 @app.route('/logout')
 @login_required
 def logout():
     logout_user()
     return redirect(url_for('index'))
+
+
+
+
+
+
+
+@app.route('/private.html', methods=['GET']) 
+@login_required
+def private():
+    user_groups = current_user.groups.all()
+    user_friends = current_user.friends.all()
+    return render_template('private.html', groups=user_groups, friends=user_friends)
+
+
+
+
+
+@app.route('/private_chat/<int:friend_id>')
+@login_required
+def private_chat(friend_id):
+    friend = User.query.get_or_404(friend_id)
+    messages = PrivateMessage.query.filter(
+        ((PrivateMessage.sender_id == current_user.id) & (PrivateMessage.recipient_id == friend_id)) |
+        ((PrivateMessage.sender_id == friend_id) & (PrivateMessage.recipient_id == current_user.id))
+    ).order_by(PrivateMessage.created_at).all()
+    return render_template('private_chat.html', friend=friend, messages=messages)
+
+
+    
+    
+@app.route('/send_private_message/<int:recipient_id>', methods=['POST'])
+@login_required
+def send_private_message(recipient_id):
+    try:
+        message_text = request.form.get('message')
+        files = request.files.getlist('files')
+        
+        if not message_text and not files:
+            return jsonify({"status": "error", "message": "No message or files provided"}), 400
+
+        new_message = PrivateMessage(sender_id=current_user.id, recipient_id=recipient_id, message=message_text)
+        db.session.add(new_message)
+        db.session.flush() 
+
+        for file in files:
+            if file and file.filename:
+                original_filename = secure_filename(file.filename)
+                file_extension = os.path.splitext(original_filename)[1]
+                unique_filename = f"{uuid.uuid4()}{file_extension}"
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+                file.save(file_path)
+                
+                attachment = PrivateMessageAttachment(
+                    message_id=new_message.id,
+                    file_name=unique_filename,
+                    original_filename=original_filename,
+                    file_path=file_path,
+                    file_type=file.content_type
+                )
+                db.session.add(attachment)
+
+        db.session.commit()
+
+        return jsonify({
+            "status": "OK",
+            "message": new_message.message,
+            "attachments": [
+                {
+                    "file_name": attachment.file_name,
+                    "original_filename": attachment.original_filename,
+                    "file_path": attachment.file_path,
+                    "file_type": attachment.file_type
+                } for attachment in new_message.attachments
+            ]
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error in send_private_message: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+    
+
+@app.route('/download_private_file/<int:attachment_id>')
+@login_required
+def download_private_file(attachment_id):
+    attachment = PostAttachment.query.get_or_404(attachment_id)
+    uploads_dir = os.path.join(app.root_path, 'static', 'uploads')
+    file_path = os.path.join(uploads_dir, attachment.file_name)
+
+    return send_file(
+        file_path, 
+        as_attachment=True, 
+        download_name=attachment.original_filename,
+        mimetype=attachment.file_type
+    )
+    
+    
+    
+
+@app.route('/react_to_message', methods=['POST'])
+@login_required
+def react_to_message():
+    message_id = request.form.get('message_id')
+    reaction_type = request.form.get('reaction_type')
+    
+    print(f"Received request: message_id={message_id}, reaction_type={reaction_type}")  # Debug log
+
+    if message_id and reaction_type:
+        existing_reaction = PrivateMessageReaction.query.filter_by(
+            message_id=message_id, user_id=current_user.id
+        ).first()
+
+        try:
+            if existing_reaction:
+                if existing_reaction.reaction_type == reaction_type:
+                    print(f"Deleting existing reaction: {existing_reaction}")  # Debug log
+                    db.session.delete(existing_reaction)
+                else:
+                    print(f"Updating existing reaction: {existing_reaction} to {reaction_type}")  # Debug log
+                    existing_reaction.reaction_type = reaction_type
+            else:
+                new_reaction = PrivateMessageReaction(
+                    message_id=message_id,
+                    user_id=current_user.id,
+                    reaction_type=reaction_type
+                )
+                print(f"Adding new reaction: {new_reaction}")  # Debug log
+                db.session.add(new_reaction)
+
+            db.session.commit()
+            print("Database session committed successfully")  # Debug log
+            return jsonify({'status': 'success', 'message': 'Reaction updated'})
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error occurred: {str(e)}")  # Debug log
+            return jsonify({'status': 'error', 'message': f'Database error: {str(e)}'})
+    
+    print("Invalid data received")  # Debug log
+    return jsonify({'status': 'error', 'message': 'Invalid data'})
+
+@app.route('/delete_private_message', methods=['POST'])
+@login_required
+def delete_private_message():
+    message_id = request.form.get('message_id')
+    message = PrivateMessage.query.get_or_404(message_id)
+
+    if message.sender_id != current_user.id:
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 403
+
+    for attachment in message.attachments:
+        os.remove(attachment.file_path)
+        db.session.delete(attachment)
+
+    db.session.delete(message)
+    db.session.commit()
+
+    return jsonify({'status': 'success', 'message': 'Message deleted'})
+
+
+
+
+@app.route('/edit_private_message/<message_id>', methods=['POST'])
+@login_required
+def edit_private_message(message_id):
+    message = PrivateMessage.query.get_or_404(message_id)
+    if message.sender != current_user:
+        return jsonify({"status": "error", "message": "You can only edit your own messages"}), 403
+
+    new_content = request.form.get('text')
+    attachments_to_keep = json.loads(request.form.get('attachments', '[]'))
+    new_files = request.files.getlist('new_files')
+
+    message.content = new_content
+
+    for attachment in message.attachments:
+        if not any(kept['id'] == str(attachment.id) for kept in attachments_to_keep):
+            db.session.delete(attachment)
+
+    for file in new_files:
+        if file:
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(file_path)
+            new_attachment = PrivateMessageAttachment(file_name=filename, original_filename=file.filename, file_type=file.content_type)
+            message.attachments.append(new_attachment)
+
+    db.session.commit()
+
+    return jsonify({
+        "status": "OK",
+        "message": "Message updated successfully",
+        "attachments": [{"id": att.id, "file_name": att.file_name, "file_type": att.file_type} for att in message.attachments]
+    })
+
+@app.route('/get_new_messages/<int:friend_id>')
+@login_required
+def get_new_messages(friend_id):
+    last_check = request.args.get('last_check')
+    if last_check:
+        try:
+            last_check = datetime.strptime(last_check, "%Y-%m-%dT%H:%M:%S.%f")
+        except ValueError:
+            last_check = datetime.utcnow() - timedelta(days=1)
+    else:
+        last_check = datetime.utcnow() - timedelta(days=1)
+
+    new_messages = PrivateMessage.query.filter(
+        ((PrivateMessage.sender_id == current_user.id) & (PrivateMessage.recipient_id == friend_id)) |
+        ((PrivateMessage.sender_id == friend_id) & (PrivateMessage.recipient_id == current_user.id)),
+        PrivateMessage.created_at > last_check
+    ).order_by(PrivateMessage.created_at).all()
+
+    messages_data = [{
+        'id': msg.id,
+        'sender_id': msg.sender_id,
+        'message': msg.message,
+        'created_at': msg.created_at.isoformat()
+    } for msg in new_messages]
+
+    return jsonify(messages_data)
+
+
+
+
+@app.route('/group_chat/<int:group_id>')
+@login_required
+def group_chat(group_id):
+    page = request.args.get('page', 1, type=int)
+    per_page = 20  # Ilość wiadomości na stronę
+    group = Group.query.get_or_404(group_id)
+    messages = GroupMessage.query.filter_by(group_id=group_id).order_by(GroupMessage.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    return render_template('group_chat.html', group=group, messages=messages)
+
+@app.route('/create_group', methods=['POST'])
+@login_required
+def create_group():
+    name = request.form.get('name')
+    if not name:
+        return jsonify({'error': 'Group name is required'}), 400
+
+    new_group = Group(name=name, zdjecie_wskaznik='basics/group.png')
+    new_group.users.append(current_user)
+    db.session.add(new_group)
+    db.session.commit()
+
+    return jsonify({'message': 'Group created successfully', 'join_code': new_group.join_code}), 200
+
+@app.route('/join_group', methods=['POST'])
+@login_required
+def join_group():
+    join_code = request.form.get('join_code')
+    if not join_code:
+        return jsonify({'error': 'Join code is required'}), 400
+
+    group = Group.query.filter_by(join_code=join_code).first()
+    if not group:
+        return jsonify({'error': 'Invalid join code'}), 404
+
+    if current_user in group.users:
+        return jsonify({'error': 'You are already a member of this group'}), 400
+
+    if group.creator_id == current_user.id:  # Zakładając, że mamy pole creator_id w modelu Group
+        return jsonify({'error': 'You cannot join your own group'}), 400
+
+    group.users.append(current_user)
+    db.session.commit()
+
+    return jsonify({'message': 'Joined group successfully'}), 200
+
+
+
+@app.route('/send_group_message', methods=['POST'])
+@login_required
+def send_group_message():
+    group_id = request.form.get('group_id')
+    message = request.form.get('message')
+    if not group_id or not message:
+        return jsonify({'error': 'Group ID and message are required'}), 400
+
+    group = Group.query.get(group_id)
+    if not group or current_user not in group.users:
+        return jsonify({'error': 'Invalid group or you are not a member'}), 403
+
+    new_message = GroupMessage(group_id=group_id, user_id=current_user.id, message=message)
+    db.session.add(new_message)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': 'Message sent successfully',
+        'message_id': new_message.id,
+        'sender': current_user.nick,
+        'content': message,
+        'timestamp': new_message.created_at.strftime('%Y-%m-%d %H:%M:%S')
+    }), 200
+
+
+@app.route('/leave_group', methods=['POST'])
+@login_required
+def leave_group():
+    group_id = request.form.get('group_id')
+    if not group_id:
+        return jsonify({'error': 'Group ID is required'}), 400
+
+    group = Group.query.get(group_id)
+    if not group:
+        return jsonify({'error': 'Invalid group'}), 404
+
+    if current_user not in group.users:
+        return jsonify({'error': 'You are not a member of this group'}), 400
+
+    group.users.remove(current_user)
+    db.session.commit()
+
+    return jsonify({'message': 'Left group successfully'}), 200
+
+
+
+
+
+
+
 
 if __name__ == "__main__":
     with app.app_context():
@@ -593,10 +1180,29 @@ if __name__ == "__main__":
 
     app.run(host='0.0.0.0', port=5555, debug=True)
 
+# co jak najszybciej
+# naprawić czat że tylko wiadomości się odświeżają i to najnowsze a powinny wszystkie z reakcjami i edycjami wrazie co
+# dodawania załączników wymaga odświeżenia co trzeba naprawić powinny się normalnie wczytać
+# edytowanie wiadomości między osobami (póki co tylko tuż po wysłaniu to działa i nie edytuje a jest menu edycji)
+# zrobienie możliwości zalogowaniea się na 2 konta w jednej przeglądarce bo aktualnie działa to na plikach cookie 
 
-    
+# co w tym tygodniu spróbuje zrobić
+# usuwanie komentarzy z postów
+# naprawić robienie postów i dodanie plików a potem ich usuwanie 
+# naprawić przekierowanie na strone posta działa tylko na stronie głównej
+# naprawić nie ma opcji edycji usuwania postów dodawani komentarzy itd w profilu w stronie postu 
+# naprawić brak wyświetlania poprawnej liczby komentarzy kiedy się ich nie odsłoni bo zawsze jest 0 na początku
+# naprawić to żeby admin nie widział przycisku do edycji 
+# dodać możliwość robienia grup i społeczności (zakładka społeczności i prywatne) i inne funkcje z tym związane
+# dodać powiadomienia
 
-# poprawić profil urzytkownika rzeby tam też była opcja dodania komentarza i usunięcia oraz zmienienia
+
+
+
+
+
+
+
 
 ################################################################
 # co trzeba zrobić, aby ładnie wyglądało:
@@ -610,10 +1216,8 @@ if __name__ == "__main__":
 # - dodać opcję robienia grup
 # - dodać opcję dołączenia do grup
 # - dodać opcję usuwania z grup
-# - dodać opcje pisania wiadomości do urzytkowników w grupach i prywatnych
 # - powiadomienia o nowych wiadomościach
 # - zlinkowanie AI jak llama czy qwen do analizy komentarzy i danych
-# - zrobienie wykresów z danych postów
-# - zrobienie wyszukiwarki po tagach
 # - jak wszystko się uda sprubować urzywając tensorflowa wybierać trafne treści dla urzytkownika
 ###
+

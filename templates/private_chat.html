@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/messagesstyles.css') }}">
+    <title>Chat with {{ friend.nick }}</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        
+    </style>
+</head>
+<body>
+    <div class="navigation">
+        <a href="{{ url_for('profile') }}">profil</a>
+        <a href="{{ url_for('main') }}">główna</a>
+        <a href="ai.html">AI</a>
+        <a href="{{ url_for('search') }}">wyszukaj urzytkownika</a>
+        <a href="{{ url_for('private') }}">prywatne</a>
+        <a href="{{ url_for('logout') }}">Wyloguj się</a>
+    </div>
+
+    <h1>Private Chat with {{ friend.nick }}</h1>
+
+    <div id="chat-messages">
+        {% for message in messages %}
+            <div class="message-container {% if message.sender_id == current_user.id %}sent{% else %}received{% endif %}">
+                <div class="message-box" data-message-id="{{ message.id }}">
+                    <strong>{{ message.sender.nick }}:</strong> 
+                    <span class="message-content">{{ message.message }}</span>
+                    {% if message.attachments %}
+                    <div class="attachments">
+                        {% for attachment in message.attachments %}
+                            {% if attachment.file_type.startswith('image/') %}
+                                {% set image_path = 'uploads/' + attachment.file_name %}
+                                <img src="{{ url_for('static', filename=image_path) }}" alt="{{ attachment.file_name }}" data-id="{{ attachment.id }}">
+                            {% elif attachment.file_type.startswith('video/') %}
+                                {% set video_path = 'uploads/' + attachment.file_name %}
+                                <video controls data-id="{{ attachment.id }}">
+                                    <source src="{{ url_for('static', filename=video_path) }}" type="{{ attachment.file_type }}">
+                                </video>
+                            {% elif attachment.file_type.startswith('audio/') %}
+                                {% set audio_path = 'uploads/' + attachment.file_name %}
+                                <audio controls data-id="{{ attachment.id }}">
+                                    <source src="{{ url_for('static', filename=audio_path) }}" type="{{ attachment.file_type }}">
+                                </audio>
+                            {% else %}
+                                <p>
+                                    <a href="{{ url_for('download_private_file', attachment_id=attachment.id) }}">Pobierz {{ attachment.original_filename }}</a> 
+                                </p>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% if message.sender.nick != current_user.nick %}
+                    <div class="reactions">
+                        
+                        {% for reaction in ['👍', '❤️', '😂', '😮', '😢'] %}
+                            <span class="reaction-btn" data-reaction="{{ reaction }}">{{ reaction }}</span>
+                        {% endfor %}
+                        
+                    </div>
+                    {% endif %}
+                    <div class="active-reactions">
+                        {% for reaction in message.reactions %}
+                            <span class="active-reaction">{{ reaction.reaction_type }}</span>
+                        {% endfor %}
+                    </div>
+                    
+                    {% if message.sender_id == current_user.id %}
+                        <div class="message-actions">
+                            <button class="edit-btn">Edit</button>
+                            <button class="delete-btn">Delete</button>
+                        </div>
+                        <div id="overlaymessages" style="display: none;">
+                            <div id="editMessageForm" style="display: none;">
+                                <textarea id="editMessageContent"></textarea>
+                                <div id="existingMessageAttachments"></div>
+                                <input type="file" id="editMessageFiles" multiple>
+                                <div id="editMessageAttachmentsPreview"></div>
+                                <button id="saveMessageEdit">Save</button>
+                                <button id="cancelMessageEdit">Cancel</button>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+        {% endfor %}
+    </div>
+
+    <div id="chat-form">
+        <form id="message-form">
+            <input type="hidden" id="recipient-id" value="{{ friend.id }}">
+            <textarea id="message-input" name="message" rows="3" required></textarea>
+            <input type="file" id="file-input" name="files" multiple>
+            <div id="attachments-preview"></div>
+            <button type="submit">Send</button>
+        </form>
+
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const messageForm = document.getElementById('message-form');
+            const messageInput = document.getElementById('message-input');
+            const fileInput = document.getElementById('file-input');
+            const attachmentsPreview = document.getElementById('attachments-preview');
+            const chatMessages = document.getElementById('chat-messages');
+            const editOverlay = document.getElementById('edit-message-overlay');
+            const editForm = document.getElementById('edit-message-form');
+            const editInput = document.getElementById('edit-message-input');
+            const editFileInput = document.getElementById('edit-file-input');
+            const editAttachmentsPreview = document.getElementById('edit-attachments-preview');
+            const saveEditBtn = document.getElementById('save-edit');
+            const cancelEditBtn = document.getElementById('cancel-edit');
+        
+            let currentEditMessageId = null;
+
+            messageForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                const formData = new FormData();
+                formData.append('message', messageInput.value);
+
+                for (let file of fileInput.files) {
+                    formData.append('files', file);
+                }
+
+                const recipientId = document.getElementById('recipient-id').value;
+
+                fetch(`/send_private_message/${recipientId}`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "OK") {
+                        messageInput.value = '';
+                        fileInput.value = '';
+                        attachmentsPreview.innerHTML = '';
+                        if (data.attachments && data.attachments.length > 0) {
+                            const attachmentsDiv = messageContainer.querySelector('.attachments');
+                            data.attachments.forEach(attachment => {
+                                const attachmentElement = createAttachmentElement(attachment);
+                                attachmentsDiv.appendChild(attachmentElement);
+                            });
+                        }
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                    } else {
+                        alert('Error sending message: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred while sending the message.');
+                });
+            });
+
+
+            //wstęp do edycji ale najlepiej od zera zrobić
+            //
+            //
+            //
+            //
+            ///////////////////////////////////////////////
+            chatMessages.addEventListener('click', function(e) {
+                if (e.target.classList.contains('edit-btn')) {
+                    const messageBox = e.target.closest('.message-box');
+                    const messageId = messageBox.dataset.messageId;
+                    const messageContent = messageBox.querySelector('.message-content').textContent;
+                    
+                    currentEditMessageId = messageId;
+                    editInput.value = messageContent;
+                    
+                    editAttachmentsPreview.innerHTML = '';
+                    
+                    const attachments = messageBox.querySelectorAll('.attachments img, .attachments video, .attachments audio');
+                    attachments.forEach(attachment => {
+                        const preview = createAttachmentPreview(attachment);
+                        editAttachmentsPreview.appendChild(preview);
+                    });
+        
+                    editOverlay.style.display = 'block';
+                }
+            });
+        
+
+            cancelMessageEdit.addEventListener('click', function() {
+                editMessageForm.style.display = 'none';
+                overlay.style.display = 'none';
+            });
+
+            saveMessageEdit.addEventListener('click', function() {
+                if (!currentMessageId) return;
+
+                const formData = new FormData();
+                formData.append('text', editMessageContent.value);
+                formData.append('attachments', JSON.stringify(currentAttachments));
+
+                for (let file of editMessageFiles.files) {
+                    formData.append('new_files', file);
+                }
+
+                fetch(`/edit_private_message/${currentMessageId}`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "OK") {
+                        const messageBox = document.querySelector(`.message-box[data-message-id="${currentMessageId}"]`);
+                        const contentElement = messageBox.querySelector('.message-content');
+                        contentElement.textContent = editMessageContent.value;
+
+                        const attachmentsContainer = messageBox.querySelector('.attachments');
+                        attachmentsContainer.innerHTML = '';
+                        data.attachments.forEach(attachment => {
+                            const attachmentElement = createAttachmentElement(attachment);
+                            attachmentsContainer.appendChild(attachmentElement);
+                        });
+
+                        editMessageForm.style.display = 'none';
+                        overlay.style.display = 'none';
+                        alert('Wiadomość została zaktualizowana.');
+                    } else {
+                        alert(`Błąd: ${data.message}`);
+                    }
+                })
+                .catch(error => {    
+                    console.error('Error:', error);
+                    alert(`Wystąpił błąd podczas edycji wiadomości: ${error.message}`);
+                });
+            });
+            //koniec do edycji ale najlepiej od zera zrobić
+            //
+            //
+            //
+            //
+            ///////////////////////////////////////////////
+            function createAttachmentPreview(attachment) {
+                const preview = document.createElement('div');
+                preview.className = 'attachment-preview';
+                
+                if (attachment.tagName === 'IMG') {
+                    const img = document.createElement('img');
+                    img.src = attachment.src;
+                    img.style.width = '50px';
+                    img.style.height = '50px';
+                    preview.appendChild(img);
+                } else if (attachment.tagName === 'VIDEO') {
+                    preview.textContent = '🎥';
+                } else if (attachment.tagName === 'AUDIO') {
+                    preview.textContent = '🎵';
+                }
+        
+                return preview;
+            }
+        
+            // Function to create attachment element
+            function createAttachmentElement(attachment) {
+                if (attachment.file_type.startsWith('image/')) {
+                    const img = document.createElement('img');
+                    img.src = `/static/uploads/${attachment.file_name}`;
+                    img.alt = attachment.original_filename;
+                    return img;
+                } else if (attachment.file_type.startsWith('video/')) {
+                    const video = document.createElement('video');
+                    video.controls = true;
+                    const source = document.createElement('source');
+                    source.src = `/static/uploads/${attachment.file_name}`;
+                    source.type = attachment.file_type;
+                    video.appendChild(source);
+                    return video;
+                } else if (attachment.file_type.startsWith('audio/')) {
+                    const audio = document.createElement('audio');
+                    audio.controls = true;
+                    const source = document.createElement('source');
+                    source.src = `/static/uploads/${attachment.file_name}`;
+                    source.type = attachment.file_type;
+                    audio.appendChild(source);
+                    return audio;
+                } else {
+                    const link = document.createElement('a');
+                    link.href = `/download_private_file/${attachment.id}`;
+                    link.textContent = `Download ${attachment.original_filename}`;
+                    return link;
+                }
+            }
+            // koniec częci wizualnej
+            //
+            //
+            //
+            /////////////////////////
+        });
+
+    </script>
+
+
+    <script>
+        document.getElementById('message-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            var formData = new FormData(this);
+            var recipientId = document.getElementById('recipient-id').value;
+
+            fetch(`/send_private_message/${recipientId}`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.status === "OK") {
+                    // Dodaj nową wiadomość do chatu
+                    addMessageToChat(data);
+                    // Wyczyść formularz
+                    this.reset();
+                    document.getElementById('attachments-preview').innerHTML = '';
+                } else {
+                    alert(data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Wystąpił błąd podczas wysyłania wiadomości.');
+            });
+        });
+
+        function addMessageToChat(messageData) {
+            const chatMessages = document.getElementById('chat-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message-container sent';
+
+            let attachmentsHtml = '';
+            if (messageData.attachments && messageData.attachments.length > 0) {
+                attachmentsHtml = '<div class="attachments">';
+                messageData.attachments.forEach(attachment => {
+                    attachmentsHtml += `<div class="attachment">${attachment.original_filename}</div>`;
+                });
+                attachmentsHtml += '</div>';
+            }
+
+            messageDiv.innerHTML = `
+                <div class="message-box">
+                    <strong>${current_user.nick}:</strong> 
+                    <span class="message-content">${messageData.message}</span>
+                    ${attachmentsHtml}
+                    <div class="message-actions">
+                        <button class="edit-btn">Edit</button>
+                        <button class="delete-btn">Delete</button>
+                    </div>
+                </div>
+            `;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+                if (file.type.startsWith('image/')) {
+                    const img = document.createElement('img');
+                    img.src = URL.createObjectURL(file);
+                    attachmentDiv.appendChild(img);
+                } else if (file.type.startsWith('video/')) {
+                    const icon = document.createElement('div');
+                    icon.textContent = '🎥';
+                    icon.style.fontSize = '40px';
+                    icon.style.textAlign = 'center';
+                    icon.style.lineHeight = '100px';
+                    attachmentDiv.appendChild(icon);
+                } else if (file.type.startsWith('audio/')) {
+                    const icon = document.createElement('div');
+                    icon.textContent = '🎵';
+                    icon.style.fontSize = '40px';
+                    icon.style.textAlign = 'center';
+                    icon.style.lineHeight = '100px';
+                    attachmentDiv.appendChild(icon);
+                } else {
+                    const icon = document.createElement('div');
+                    icon.textContent = '📎';
+                    icon.style.fontSize = '40px';
+                    icon.style.textAlign = 'center';
+                    icon.style.lineHeight = '100px';
+                    attachmentDiv.appendChild(icon);
+                }
+    
+                attachmentDiv.appendChild(removeButton);
+                return attachmentDiv;
+            
+    
+            
+    </script>
+
+
+
+    <script>
+        $(document).ready(function() {
+            let lastCheck = new Date().toISOString();
+            const friendId = {{ friend.id }};
+
+            $(document).on('click', '.message-box', function(e) {
+                if (!$(e.target).closest('.message-actions, .edit-form').length) {
+                    $(this).find('.reactions').toggle();
+                }
+            });
+
+            $(document).on('click', '.reaction-btn', function() {
+                const messageBox = $(this).closest('.message-box');
+                const messageId = messageBox.data('message-id');
+                const reactionType = $(this).data('reaction');
+        
+                $.ajax({
+                    url: '/react_to_message',
+                    method: 'POST',
+                    data: {
+                        message_id: messageId,
+                        reaction_type: reactionType
+                    },
+                    success: function(response) {
+                        if (response.status === 'success') {
+                            console.log('Reakcja zaktualizowana');
+                            updateReactionUI(messageBox, response.reactions);
+                        } else {
+                            console.error('Błąd podczas aktualizacji reakcji:', response.message);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Błąd AJAX:', error);
+                    }
+                });
+            });
+
+
+            function updateReactionUI(messageBox, reactions) {
+                const activeReactions = messageBox.find('.active-reactions');
+                activeReactions.empty();
+        
+                for (const [reaction, count] of Object.entries(reactions)) {
+                    if (reaction !== 'user_reaction' && count > 0) {
+                        activeReactions.append(`<span class="active-reaction">${reaction} ${count}</span>`);
+                    }
+                }
+        
+                messageBox.find('.reaction-btn').removeClass('user-reacted');
+                if (reactions.user_reaction) {
+                    messageBox.find(`.reaction-btn[data-reaction="${reactions.user_reaction}"]`).addClass('user-reacted');
+                }
+            }
+
+
+    
+            function displayMessage(message) {
+                const messageClass = message.sender_id == {{ current_user.id }} ? 'sent' : 'received';
+                const senderNick = message.sender_id == {{ current_user.id }} ? '{{ current_user.nick }}' : '{{ friend.nick }}';
+                let messageHtml = `
+                    <div class="message-container ${messageClass}">
+                        <div class="message-box" data-message-id="${message.id}">
+                            <strong>${senderNick}:</strong> 
+                            <span class="message-content">${message.message}</span>
+                            <div class="reactions">
+                                <span class="reaction-btn" data-reaction="👍">👍</span>
+                                <span class="reaction-btn" data-reaction="❤️">❤️</span>
+                                <span class="reaction-btn" data-reaction="😂">😂</span>
+                                <span class="reaction-btn" data-reaction="😮">😮</span>
+                                <span class="reaction-btn" data-reaction="😢">😢</span>
+                            </div>
+                            
+                `;
+
+
+    
+                if (message.sender_id == {{ current_user.id }}) {
+                    messageHtml += `
+                        <div class="message-actions">
+                            <button class="edit-btn">Edit</button>
+                            <button class="delete-btn">Delete</button>
+                        </div>
+                        <form class="edit-form" style="display: none;">
+                            <textarea name="new_content">${message.message}</textarea>
+                            <button type="submit">Save</button>
+                            <button type="button" class="cancel-edit">Cancel</button>
+                        </form>
+                    `;
+                }
+    
+                messageHtml += '</div></div>';
+                $('#chat-messages').append(messageHtml);
+            }
+    
+            function fetchNewMessages() {
+                console.log("Fetching new messages since:", lastCheck);
+                fetch(`/get_new_messages/${friendId}?last_check=${encodeURIComponent(lastCheck)}`)
+                    .then(response => response.json())
+                    .then(messages => {
+                        console.log("Received messages:", messages);
+                        messages.forEach(message => {
+                            if (!$(`.message-box[data-message-id="${message.id}"]`).length) {
+                                displayMessage(message);
+                            }
+                        });
+                        if (messages.length > 0) {
+                            lastCheck = messages[messages.length - 1].created_at;
+                            console.log("Updated lastCheck to:", lastCheck);
+                        }
+                    })
+                    .catch(error => console.error('Error fetching messages:', error));
+            }
+    
+            $('#message-form').submit(function(e) {
+                e.preventDefault();
+                const formData = new FormData(this);
+                $.ajax({
+                    url: '/send_private_message',
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        if (response.status === 'success') {
+                            $('#message-form textarea').val('');
+                            $('#message-form input[type="file"]').val('');
+                            displayMessage(response.message_data);
+                            lastCheck = response.message_data.created_at;
+                        } else {
+                            alert('Failed to send message: ' + response.message);
+                        }
+                    }
+                });
+            });
+    
+            $(document).on('click', '.delete-btn', function() {
+                const messageId = $(this).closest('.message-box').data('message-id');
+                if (confirm('Are you sure you want to delete this message?')) {
+                    $.post('/delete_private_message', {
+                        message_id: messageId
+                    }, function(response) {
+                        if (response.status === 'success') {
+                            $(`.message-box[data-message-id="${messageId}"]`).closest('.message-container').remove();
+                        } else {
+                            alert('Failed to delete message: ' + response.message);
+                        }
+                    });
+                }
+            });
+    
+            $(document).on('click', '.edit-btn', function() {
+                const messageBox = $(this).closest('.message-box');
+                messageBox.find('.edit-form').show();
+                messageBox.find('.message-content').hide();
+                $(this).hide();
+            });
+
+            $(document).on('click', '.cancel-edit', function() {
+                const messageBox = $(this).closest('.message-box');
+                messageBox.find('.edit-form').hide();
+                messageBox.find('.message-content').show();
+                messageBox.find('.edit-btn').show();
+            });
+
+            $(document).on('submit', '.edit-form', function(e) {
+                e.preventDefault();
+                const messageBox = $(this).closest('.message-box');
+                const messageId = messageBox.data('message-id');
+                const newContent = $(this).find('textarea[name="new_content"]').val();
+                $.post('/edit_private_message', {
+                    message_id: messageId,
+                    new_content: newContent
+                }, function(response) {
+                    if (response.status === 'success') {
+                        messageBox.find('.message-content').text(newContent).show();
+                        messageBox.find('.edit-form').hide();
+                        messageBox.find('.edit-btn').show();
+                    } else {
+                        alert('Failed to edit message: ' + response.message);
+                    }
+                });
+            });
+
+    
+            setInterval(fetchNewMessages, 2000);
+        });
+    </script>
+</body>
+</html>

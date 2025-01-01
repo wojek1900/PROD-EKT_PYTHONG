@@ -30,7 +30,30 @@
         <p>Opis: {{ user.opis }}</p>
     </div>
 
+    {% if current_user.id != user.id %}
+        <div class="user-actions">
+            <form action="{{ url_for('follow_user', user_id=user.id) }}" method="POST">
+                <button type="submit" class="action-btn follow-btn">
+                    {% if current_user.is_following(user) %}
+                        Przestań obserwować
+                    {% else %}
+                        Obserwuj
+                    {% endif %}
+                </button>
+            </form>
+            <form action="{{ url_for('add_friend', user_id=user.id) }}" method="POST">
+                <button type="submit" class="action-btn friend-btn">
+                    {% if current_user.is_friend(user) %}
+                        Usuń z przyjaciół
+                    {% else %}
+                        Dodaj do przyjaciół
+                    {% endif %}
+                </button>
+            </form>
+        </div>
+    {% endif %}
     <h2>posty od {{ user.nick }}</h2>
+
     <div id="posts">
         {% for post in posts %}
             <div class="post">

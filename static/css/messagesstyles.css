@@ -1,0 +1,145 @@
+
+
+
+
+
+
+
+
+#chat-messages {
+    display: flex;
+    flex-direction: column;
+}
+.message-container {
+    display: flex;
+    margin-bottom: 10px;
+}
+.message-container.sent {
+    justify-content: flex-end;
+}
+.message-container.received {
+    justify-content: flex-start;
+}
+.message-box {
+    max-width: 70%;
+    padding: 10px;
+    border-radius: 10px;
+}
+.sent .message-box {
+    background-color: #dcf8c6;
+}
+.received .message-box {
+    background-color: #f1f0f0;
+}
+.reactions {
+    display: none;
+}
+.reaction-btn {
+    cursor: pointer;
+    padding: 2px 5px;
+    margin: 0 2px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+.reaction-btn:hover {
+    background-color: #f0f0f0;
+}
+
+.message-actions {
+    margin-top: 5px;
+}
+
+.edit-form {
+    display: none;
+    margin-top: 10px;
+}
+.edit-form textarea {
+    width: 100%;
+    margin-bottom: 5px;
+}
+
+.active-reactions {
+    margin-top: 5px;
+}
+.active-reaction {
+    margin-right: 5px;
+    padding: 2px 5px;
+    background-color: #f0f0f0;
+    border-radius: 10px;
+    font-size: 0.9em;
+}
+.reaction-btn.user-reacted {
+    background-color: #e0e0e0;
+}
+
+.attachment-preview {
+    width: 100px;
+    height: 100px;
+    background-color: white;
+    position: relative;
+    display: inline-block;
+    margin: 5px;
+}
+.attachment-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.attachment-preview .remove-button {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background-color: red;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+.attachments {
+    margin-top: 10px;
+}
+
+.attachments img, .attachments video, .attachments audio {
+    max-width: 100%;
+    max-height: 300px;
+    margin-bottom: 10px;
+}
+
+.attachments p {
+    margin: 5px 0;
+}
+
+
+#overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+#editMessageForm {
+    background-color: white;
+    padding: 20px;
+    border-radius: 5px;
+    max-width: 80%;
+    max-height: 80%;
+    overflow-y: auto;
+}
+
+#editMessageContent {
+    width: 100%;
+    min-height: 100px;
+    margin-bottom: 10px;
+}
+
+.attachment-preview {
+    display: inline-block;
+    margin: 5px;
+    position: relative;
+}

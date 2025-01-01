@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discover</title>
+</head>
+<body>
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-info">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    <div class="navigation">
+        <a href="{{ url_for('profile') }}">profil</a>
+        <a href="{{ url_for('main') }}">główna</a>
+        <a href="ai.html">AI</a>
+        <a href="{{ url_for('search') }}">wyszukaj urzytkownika</a>
+        <a href="{{ url_for('private') }}">prywatne</a>
+        <a href="{{ url_for('logout') }}">Wyloguj się</a>
+    </div>
+
+    <h2>Your Groups</h2>
+    <ul>
+        {% for group in groups %}
+        <li>
+            <a href="{{ url_for('group_chat', group_id=group.id) }}">{{ group.name }}</a>
+        </li>
+        {% endfor %}
+    </ul>
+
+    <h2>Your Friends</h2>
+    <ul>
+        {% for friend in friends %}
+        <li>
+            <a href="{{ url_for('private_chat', friend_id=friend.id) }}">{{ friend.nick }}</a>
+        </li>
+        {% endfor %}
+    </ul>
+
+    <h3>Create a New Group</h3>
+    <form id="create-group-form">
+        <input type="text" id="group-name" placeholder="Group Name" required>
+        <button type="submit">Create Group</button>
+    </form>
+
+    <h3>Join a Group</h3>
+    <form id="join-group-form">
+        <input type="text" id="join-code" placeholder="Join Code" required>
+        <button type="submit">Join Group</button>
+    </form>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <script>
+        $(document).ready(function() {
+            $('#create-group-form').submit(function(e) {
+                e.preventDefault();
+                var groupName = $('#group-name').val();
+                $.ajax({
+                    url: '/create_group',
+                    method: 'POST',
+                    data: {name: groupName},
+                    success: function(response) {
+                        alert('Group created successfully! Join code: ' + response.join_code);
+                        location.reload();
+                    },
+                    error: function(xhr) {
+                        alert('Failed to create group: ' + xhr.responseJSON.error);
+                    }
+                });
+            });
+
+            $('#join-group-form').submit(function(e) {
+                e.preventDefault();
+                var joinCode = $('#join-code').val();
+                $.ajax({
+                    url: '/join_group',
+                    method: 'POST',
+                    data: {join_code: joinCode},
+                    success: function(response) {
+                        alert('Joined group successfully!');
+                        location.reload();
+                    },
+                    error: function(xhr) {
+                        alert('Failed to join group: ' + xhr.responseJSON.error);
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

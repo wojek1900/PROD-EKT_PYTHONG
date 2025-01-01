@@ -24,21 +24,9 @@
     </div>
     <div>
         <!--<a href="glowna">główna</a>-->
-        <a href="following.html">obesrwowane</a>
+        <a href="obesrwowane">obesrwowane</a>
         <a href="spolecznosci">społeczności</a>
     </div>
-<div class="search-form">
-    <form id="search-form" action="{{ url_for('main') }}" method="GET">
-        <input type="text" name="search_query" placeholder="Wyszukaj..." value="{{ request.args.get('search_query', '') }}">
-        <label>
-            <input type="radio" name="search_type" value="post_text" {% if request.args.get('search_type') != 'tag' %}checked{% endif %}> Wyszukaj w treści postów
-        </label>
-        <label>
-            <input type="radio" name="search_type" value="tag" {% if request.args.get('search_type') == 'tag' %}checked{% endif %}> Wyszukaj po tagu
-        </label>
-        <button type="submit">Szukaj</button>
-    </form>
-</div>
     <h1>User Profile</h1>
     <p>Witaj, {{ user.nick }}!</p>
     <ul>
@@ -60,7 +48,6 @@
         <label>
             <input type="checkbox" name="is_private"> Prywatny post
             <input type="checkbox" name="no_comments"> brak komentarzy
-            <input type="text" name="tags" placeholder="Enter tags (comma-separated)">
         </label>
         <button type="submit">Wyślij</button>
     </form>
@@ -68,6 +55,7 @@
     <div id="posts">
         <p>POSTY</p>
         {% for post in posts %}
+        {% if current_user.is_following(post.user_id) %}
             <div class="post post-clickable" data-post-id="{{ post.id }}">
                 <a href="{{ url_for('user_profile', user_id=post.author.id) }}">
                 <div class="post-header">
@@ -155,8 +143,8 @@
                     {% endfor %}
                 </div>
             </div>
+        {% endif %}
         {% endfor %}
-
 
         <div class="overlay" id="overlay"></div>
     <div class="edit-form" id="editForm">
@@ -258,7 +246,5 @@
         </script>
 <script src="{{ url_for('static', filename='js/post-przycisk.js') }}"></script>
 <script src="{{ url_for('static', filename='js/hide-show-comments.js') }}"></script>
-<script src="{{ url_for('static', filename='js/search.js') }}">
-</script>
 </body>
 </html> 

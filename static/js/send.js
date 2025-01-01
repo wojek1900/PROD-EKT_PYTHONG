@@ -11,7 +11,6 @@ document.getElementById('post-form').addEventListener('submit', function(e) {
     .then(data => {
         if(data.status === "OK") {
             alert(data.message);
-            // Tutaj możesz dodać kod do odświeżenia listy postów bez przeładowania strony
         } else {
             alert(data.message);
         }

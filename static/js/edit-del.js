@@ -268,26 +268,74 @@ document.addEventListener('DOMContentLoaded', function() {
 
     editFiles.addEventListener('change', function(e) {
         for (let file of e.target.files) {
-            const attachmentDiv = document.createElement('div');
-            attachmentDiv.className = 'attachment-preview';
-            attachmentDiv.style.width = '100px';
-            attachmentDiv.style.height = '100px';
-            attachmentDiv.style.backgroundColor = 'blue';
-            attachmentDiv.style.position = 'relative';
-            attachmentDiv.style.display = 'inline-block';
-            attachmentDiv.style.margin = '5px';
-
-            const removeButton = document.createElement('button');
-            removeButton.textContent = 'x';
-            removeButton.style.position = 'absolute';
-            removeButton.style.top = '0';
-            removeButton.style.right = '0';
-            removeButton.addEventListener('click', () => {
-                attachmentDiv.remove();
-            });
-
-            attachmentDiv.appendChild(removeButton);
+            const attachmentDiv = createAttachmentPreview(file);
             existingAttachments.appendChild(attachmentDiv);
         }
     });
+
+    function createAttachmentPreview(file) {
+        const attachmentDiv = document.createElement('div');
+        attachmentDiv.className = 'attachment-preview';
+        attachmentDiv.style.width = '100px';
+        attachmentDiv.style.height = '100px';
+        attachmentDiv.style.backgroundColor = 'white';
+        attachmentDiv.style.position = 'relative';
+        attachmentDiv.style.display = 'inline-block';
+        attachmentDiv.style.margin = '5px';
+
+        const removeButton = document.createElement('button');
+        removeButton.textContent = 'x';
+        removeButton.style.position = 'absolute';
+        removeButton.style.top = '0';
+        removeButton.style.right = '0';
+        removeButton.addEventListener('click', () => {
+            attachmentDiv.remove();
+            removeFileFromInput(file);
+        });
+
+        if (file.type.startsWith('image/')) {
+            const img = document.createElement('img');
+            img.src = URL.createObjectURL(file);
+            img.style.width = '100%';
+            img.style.height = '100%';
+            img.style.objectFit = 'cover';
+            attachmentDiv.appendChild(img);
+        } else if (file.type.startsWith('video/')) {
+            const icon = document.createElement('div');
+            icon.textContent = '🎥';
+            icon.style.fontSize = '40px';
+            icon.style.textAlign = 'center';
+            icon.style.lineHeight = '100px';
+            attachmentDiv.appendChild(icon);
+        } else if (file.type.startsWith('audio/')) {
+            const icon = document.createElement('div');
+            icon.textContent = '🎵';
+            icon.style.fontSize = '40px';
+            icon.style.textAlign = 'center';
+            icon.style.lineHeight = '100px';
+            attachmentDiv.appendChild(icon);
+        } else {
+            const icon = document.createElement('div');
+            icon.textContent = '📎';
+            icon.style.fontSize = '40px';
+            icon.style.textAlign = 'center';
+            icon.style.lineHeight = '100px';
+            attachmentDiv.appendChild(icon);
+        }
+
+        attachmentDiv.appendChild(removeButton);
+        return attachmentDiv;
+    }
+
+    function removeFileFromInput(fileToRemove) {
+        const dt = new DataTransfer();
+        const { files } = editFiles;
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            if (file !== fileToRemove) {
+                dt.items.add(file);
+            }
+        }
+        editFiles.files = dt.files;
+    }
 });
