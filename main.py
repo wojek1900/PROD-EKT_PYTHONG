@@ -881,16 +881,14 @@ def send_private_message(recipient_id):
     try:
         message_text = request.form.get('message')
         files = request.files.getlist('files')
-        
         if not message_text and not files:
             return jsonify({"status": "error", "message": "No message or files provided"}), 400
 
         new_message = PrivateMessage(sender_id=current_user.id, recipient_id=recipient_id, message=message_text)
         db.session.add(new_message)
         db.session.flush() 
-
         for file in files:
-            if file and file.filename:
+            if file:
                 original_filename = secure_filename(file.filename)
                 file_extension = os.path.splitext(original_filename)[1]
                 unique_filename = f"{uuid.uuid4()}{file_extension}"
@@ -905,9 +903,7 @@ def send_private_message(recipient_id):
                     file_type=file.content_type
                 )
                 db.session.add(attachment)
-
         db.session.commit()
-
         return jsonify({
             "status": "OK",
             "message": new_message.message,
@@ -925,6 +921,8 @@ def send_private_message(recipient_id):
         db.session.rollback()
         app.logger.error(f"Error in send_private_message: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
+    
+
     
 
 @app.route('/download_private_file/<int:attachment_id>')
@@ -985,6 +983,9 @@ def react_to_message():
     print("Invalid data received")  # Debug log
     return jsonify({'status': 'error', 'message': 'Invalid data'})
 
+
+
+
 @app.route('/delete_private_message', methods=['POST'])
 @login_required
 def delete_private_message():
@@ -1024,13 +1025,11 @@ def edit_private_message(message_id):
             db.session.delete(attachment)
 
     for file in new_files:
-        if file:
-            filename = secure_filename(file.filename)
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(file_path)
-            new_attachment = PrivateMessageAttachment(file_name=filename, original_filename=file.filename, file_type=file.content_type)
-            message.attachments.append(new_attachment)
-
+        filename = secure_filename(file.filename)
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(file_path)
+        new_attachment = PrivateMessageAttachment(file_name=filename, original_filename=file.filename, file_type=file.content_type)
+        message.attachments.append(new_attachment)
     db.session.commit()
 
     return jsonify({
@@ -1039,30 +1038,44 @@ def edit_private_message(message_id):
         "attachments": [{"id": att.id, "file_name": att.file_name, "file_type": att.file_type} for att in message.attachments]
     })
 
+
+
 @app.route('/get_new_messages/<int:friend_id>')
 @login_required
 def get_new_messages(friend_id):
-    last_check = request.args.get('last_check')
-    if last_check:
-        try:
-            last_check = datetime.strptime(last_check, "%Y-%m-%dT%H:%M:%S.%f")
-        except ValueError:
-            last_check = datetime.utcnow() - timedelta(days=1)
-    else:
-        last_check = datetime.utcnow() - timedelta(days=1)
-
-    new_messages = PrivateMessage.query.filter(
+    messages = PrivateMessage.query.filter(
         ((PrivateMessage.sender_id == current_user.id) & (PrivateMessage.recipient_id == friend_id)) |
-        ((PrivateMessage.sender_id == friend_id) & (PrivateMessage.recipient_id == current_user.id)),
-        PrivateMessage.created_at > last_check
+        ((PrivateMessage.sender_id == friend_id) & (PrivateMessage.recipient_id == current_user.id))
     ).order_by(PrivateMessage.created_at).all()
 
-    messages_data = [{
-        'id': msg.id,
-        'sender_id': msg.sender_id,
-        'message': msg.message,
-        'created_at': msg.created_at.isoformat()
-    } for msg in new_messages]
+    messages_data = []
+    for msg in messages:
+        reactions = {}
+        for reaction in msg.reactions:
+            if reaction.reaction_type in reactions:
+                reactions[reaction.reaction_type] += 1
+            else:
+                reactions[reaction.reaction_type] = 1
+        
+        user_reaction = next((r.reaction_type for r in msg.reactions if r.user_id == current_user.id), None)
+        reactions['user_reaction'] = user_reaction
+
+        messages_data.append({
+            'id': msg.id,
+            'sender_id': msg.sender_id,
+            'message': msg.message,
+            'created_at': msg.created_at.isoformat(),
+            'reactions': reactions,
+            "attachments": [
+                {
+                    "id": attachment.id,
+                    "file_name": attachment.file_name,
+                    "original_filename": attachment.original_filename,
+                    "file_path": attachment.file_path,
+                    "file_type": attachment.file_type
+                } for attachment in msg.attachments
+            ]
+        })
 
     return jsonify(messages_data)
 
