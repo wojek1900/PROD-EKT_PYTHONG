@@ -155,7 +155,288 @@
 
     </script>
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const chatMessages = document.getElementById('chat-messages');
+            const overlaymessages = document.getElementById('overlaymessages');
+            const editMessageForm = document.getElementById('editMessageForm');
+            const editMessageContent = document.getElementById('editMessageContent');
+            const existingMessageAttachments = document.getElementById('existingMessageAttachments');
+            const editMessageFiles = document.getElementById('editMessageFiles');
+            const editMessageAttachmentsPreview = document.getElementById('editMessageAttachmentsPreview');
+            const saveMessageEdit = document.getElementById('saveMessageEdit');
+            const cancelMessageEdit = document.getElementById('cancelMessageEdit');
+        
+            let currentEditMessageId = null;
+            let currentAttachments = [];
+        
+            // Function to show edit form
+            function showEditForm(messageId, content, attachments) {
+                currentEditMessageId = messageId;
+                editMessageContent.value = content;
+                existingMessageAttachments.innerHTML = '';
+                editMessageAttachmentsPreview.innerHTML = '';
+
+                attachments.forEach(attachment => {
+                    const attachmentElement = createAttachmentElement(attachment);
+                    existingMessageAttachments.appendChild(attachmentElement);
+                });
+
+
+                const messageBox = document.querySelector(`.message-box[data-message-id="${messageId}"]`);
+                const rect = messageBox.getBoundingClientRect();
+                overlaymessages.style.display = 'block';
+                editMessageForm.style.display = 'block';
+                editMessageForm.style.position = 'fixed';
+                editMessageForm.style.top = `${rect.top}px`;
+                editMessageForm.style.left = `${rect.left}px`;
+                editMessageForm.style.maxWidth = `${rect.width}px`;
+                editMessageForm.style.zIndex = '1000';
+                overlaymessages.style.position = 'fixed';
+                overlaymessages.style.top = '0';
+                overlaymessages.style.left = '0';
+                overlaymessages.style.width = '100%';
+                overlaymessages.style.height = '100%';
+                overlaymessages.style.zIndex = '999';
+            }
+
+            function hideEditForm() {
+                overlaymessages.style.display = 'none';
+                editMessageForm.style.display = 'none';
+                currentEditMessageId = null;
+                clearEditForm();
+            }
+
+            function clearEditForm() {
+                editMessageContent.value = '';
+                editMessageFiles.value = ''; 
+                existingMessageAttachments.innerHTML = '';
+                editMessageAttachmentsPreview.innerHTML = '';
+                currentAttachments = [];
+            }
+
+            // Function to create attachment element with delete button
+            function createAttachmentElement(attachment) {
+                console.log('Attachment ' + attachment.id );
+                const attachmentDiv = document.createElement('div');
+                attachmentDiv.className = 'attachment-preview';
+                attachmentDiv.style.width = '100px';
+                attachmentDiv.style.height = '100px';
+                attachmentDiv.style.display = 'inline-block';
+                attachmentDiv.style.margin = '5px';
+                attachmentDiv.style.position = 'relative';
+
+                let contentElement;
+                if (attachment.type === 'img') {
+                    contentElement = document.createElement('img');
+                    contentElement.src = attachment.src;
+                    contentElement.style.width = '100%';
+                    contentElement.style.height = '100%';
+                    contentElement.style.objectFit = 'cover';
+                } else {
+                    const link = document.createElement('a');
+                    link.href = attachment.src;
+                    link.target = '_blank';
+
+                    contentElement = document.createElement('div');
+                    contentElement.style.fontSize = '40px';
+                    contentElement.style.textAlign = 'center';
+                    contentElement.style.lineHeight = '100px';
+
+                    if (attachment.type === 'video') {
+                        contentElement.textContent = '🎥';
+                    } else if (attachment.type === 'audio') {
+                        contentElement.textContent = '🎵';
+                    } else {
+                        contentElement.textContent = '📎';
+                    }
+
+                    link.appendChild(contentElement);
+                    contentElement = link;
+                }
+
+                attachmentDiv.appendChild(contentElement);
+
+                if (attachment.id) {
+                    contentElement.dataset.id = attachment.id;
+                } 
+                /////////////////////////////////////////////////////
+                /////////////////////////////////////////////////////
+                /////////////////////////////////////////////////////
+//
+//              Należy naprawić błąd związany z tym że jak się dodaje  
+//              pliki i się usunie przed zapisaniem to on dalej jest 
+//              i się wysyła w wiadomości pomimo usunięcia go z tamtąd
+//
+                /////////////////////////////////////////////////////
+                /////////////////////////////////////////////////////
+                /////////////////////////////////////////////////////
+                const deleteButton = document.createElement('button');
+                deleteButton.textContent = 'X';
+                deleteButton.style.position = 'absolute';
+                deleteButton.style.top = '0';
+                deleteButton.style.right = '0';
+                deleteButton.style.background = 'red';
+                deleteButton.style.color = 'white';
+                deleteButton.style.border = 'none';
+                deleteButton.style.cursor = 'pointer';
+                deleteButton.onclick = (e) => {
+                    e.preventDefault();
+                    if (attachment.id) {
+                        // Jeśli to istniejący załącznik, oznacz go do usunięcia
+                        attachment.toDelete = true;
+                    } else {
+                        // Jeśli to nowy załącznik, usuń go z listy plików
+                        const dt = new DataTransfer();
+                        const files = editMessageFiles.files;
+                        for (let i = 0; i < files.length; i++) {
+                            if (files[i] !== attachment.file) {
+                                dt.items.add(files[i]);
+                            }
+                        }
+                        editMessageFiles.files = dt.files;
+                    }
+                    attachmentDiv.remove();
+                };
+                attachmentDiv.appendChild(deleteButton);
+                return attachmentDiv;
+            }
+
+
+        
+            // Event delegation for edit and delete buttons
+            chatMessages.addEventListener('click', function(e) {
+                if (e.target.classList.contains('edit-btn')) {
+                    const messageBox = e.target.closest('.message-box');
+                    const messageId = messageBox.dataset.messageId;
+                    const content = messageBox.querySelector('.message-content').textContent;
+                    const attachments = Array.from(messageBox.querySelectorAll('.attachments img, .attachments video, .attachments audio, .attachments p')).map(el => {
+                        if (el.tagName.toLowerCase() === 'p') {
+                            const link = el.querySelector('a');
+                            return {
+                                id: el.dataset.id,
+                                type: 'file', 
+                                src: link ? link.href : ''
+                            };
+                        } else {
+                            return {
+                                id: el.dataset.id,
+                                type: el.tagName.toLowerCase(),
+                                src: el.src || el.href
+                            };
+                        }
+                    });
+                    showEditForm(messageId, content, attachments);
+                } 
+            });
+        
+            // Save edit button
+        saveMessageEdit.addEventListener('click', function() {
+            const formData = new FormData();
+            formData.append('message', editMessageContent.value);
+            formData.append('message_id', currentEditMessageId);
+
+            // Append existing attachments that weren't deleted
+            const existingAttachments = existingMessageAttachments.querySelectorAll('.attachment-preview');
+            existingAttachments.forEach(attachment => {
+                const attachmentId = attachment.querySelector('img, video, audio, a').dataset.id;
+                formData.append('existing_attachments[]', attachmentId);
+            });
+
+            // Append new files
+            for (let file of editMessageFiles.files) {
+                formData.append('new_files[]', file);
+            }
+            console.log("Existing attachments:", Array.from(formData.getAll('existing_attachments[]')));
+    console.log("New files:", Array.from(formData.getAll('new_files[]')));
+            fetch(`/edit_private_message/${currentEditMessageId}`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === "OK") {
+                    // Update the message in the DOM
+                    const messageBox = document.querySelector(`.message-box[data-message-id="${currentEditMessageId}"]`);
+                    messageBox.querySelector('.message-content').textContent = editMessageContent.value;
+
+                    // Update attachments
+                    const attachmentsContainer = messageBox.querySelector('.attachments');
+                    attachmentsContainer.innerHTML = '';
+                    data.attachments.forEach(attachment => {
+                        //to nie tu
+                        const attachmentElement = createAttachmentElement(attachment);
+                        attachmentsContainer.appendChild(attachmentElement);
+                    });
+
+                    hideEditForm();
+                } else {
+                    console.error('Server returned error:', data.message);
+                    alert('Error editing message: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error details:', error);
+                alert('An error occurred while editing the message. Please check the console for more details.');
+            });
+        });
+        
+            // Cancel edit button
+            cancelMessageEdit.addEventListener('click', hideEditForm);
+        
+        
+            // Handle file input change for editing
+            editMessageFiles.addEventListener('change', function(e) {
+                editMessageAttachmentsPreview.innerHTML = '';
+                for (let file of e.target.files) {
+                    const attachmentDiv = createAttachmentElement({
+                        type: file.type.startsWith('image/') ? 'img' : 
+                              file.type.startsWith('video/') ? 'video' :
+                              file.type.startsWith('audio/') ? 'audio' : 'file',
+                        src: URL.createObjectURL(file),
+                        file: file 
+                    });
+                    editMessageAttachmentsPreview.appendChild(attachmentDiv);
+                }
+            });
+        });
+        </script>
     
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <script>
         $(document).ready(function() {
@@ -256,43 +537,50 @@
             }
             
             function displayMessage(message) {
-                const messageClass = message.sender_id == {{ current_user.id }} ? 'sent' : 'received';
-                const senderNick = message.sender_id == {{ current_user.id }} ? '{{ current_user.nick }}' : '{{ friend.nick }}';
-                let messageHtml = `
-                    <div class="message-container ${messageClass}">
-                        <div class="message-box" data-message-id="${message.id}">
-                            <strong>${senderNick}:</strong> 
-                            <span class="message-content">${message.message}</span>
-                            <div class="reactions">
-                                <span class="reaction-btn" data-reaction="👍">👍</span>
-                                <span class="reaction-btn" data-reaction="❤️">❤️</span>
-                                <span class="reaction-btn" data-reaction="😂">😂</span>
-                                <span class="reaction-btn" data-reaction="😮">😮</span>
-                                <span class="reaction-btn" data-reaction="😢">😢</span>
-                            </div>
-                            <div class="active-reactions"></div>
-                            <div class="attachments"></div>
-                        </div>
-                    </div>
-                `;
-                
-                const $messageElement = $(messageHtml);
-                $('#chat-messages').append($messageElement);
+            const messageClass = message.sender_id == {{ current_user.id }} ? 'sent' : 'received';
+            const senderNick = message.sender_id == {{ current_user.id }} ? '{{ current_user.nick }}' : '{{ friend.nick }}';
+            const isCurrentUser = message.sender_id == {{ current_user.id }};
 
-                if (message.sender_id == {{ current_user.id }}) {
-                    const actionsHtml = `
-                        <div class="message-actions">
-                            <button class="edit-btn">Edit</button>
-                            <button class="delete-btn">Delete</button>
-                        </div>
-                        <form class="edit-form" style="display: none;">
-                            <textarea name="new_content">${message.message}</textarea>
-                            <button type="submit">Save</button>
-                            <button type="button" class="cancel-edit">Cancel</button>
-                        </form>
-                    `;
-                    $messageElement.find('.message-box').append(actionsHtml);
-                }}
+    let messageHtml = `
+        <div class="message-container ${messageClass}">
+            <div class="message-box" data-message-id="${message.id}">
+                <strong>${senderNick}:</strong> 
+                <span class="message-content">${message.message}</span>
+                ${!isCurrentUser ? `
+                <div class="reactions">
+                    <span class="reaction-btn" data-reaction="👍">👍</span>
+                    <span class="reaction-btn" data-reaction="❤️">❤️</span>
+                    <span class="reaction-btn" data-reaction="😂">😂</span>
+                    <span class="reaction-btn" data-reaction="😮">😮</span>
+                    <span class="reaction-btn" data-reaction="😢">😢</span>
+                </div>
+                ` : ''}
+                <div class="active-reactions"></div>
+                <div class="attachments"></div>
+            </div>
+        </div>
+    `;
+    
+    const $messageElement = $(messageHtml);
+    $('#chat-messages').append($messageElement);
+
+    if (message.sender_id == {{ current_user.id }}) {
+        const actionsHtml = `
+            <div class="message-actions">
+                <button class="edit-btn">Edit</button>
+                <button class="delete-btn">Delete</button>
+            </div>
+            <form class="edit-form" style="display: none;">
+                <textarea name="new_content">${message.message}</textarea>
+                <button type="submit">Save</button>
+                <button type="button" class="cancel-edit">Cancel</button>
+            </form>
+        `;
+        $messageElement.find('.message-box').append(actionsHtml);
+    }
+
+    updateAttachments($messageElement.find('.message-box'), message.attachments);
+    updateReactionUI($messageElement.find('.message-box'), message.reactions);}
 
                 function updateAttachments(messageBox, attachments) {
                     let attachmentsContainer = messageBox.find('.attachments');
@@ -336,13 +624,21 @@
             
 
             function fetchNewMessages() {
-                console.log("Fetching new messages since:", lastCheck);
                 fetch(`/get_new_messages/${friendId}`)
                     .then(response => response.json())
                     .then(messages => {
-                        console.log("Received messages:", messages);
+                        const receivedMessageIds = messages.map(message => message.id);
+
+                        // Usuń wiadomości, których nie ma w otrzymanych danych
+                        $('.message-container').each(function() {
+                            const messageId = $(this).find('.message-box').data('message-id');
+                            if (!receivedMessageIds.includes(messageId)) {
+                                $(this).remove();
+                            }
+                        });
+
+                        // Aktualizuj lub dodaj nowe wiadomości
                         messages.forEach(message => {
-                            //console.log(message.id)
                             const existingMessage = $(`.message-box[data-message-id="${message.id}"]`);
                             if (existingMessage.length) {
                                 updateExistingMessage(existingMessage, message);
@@ -350,13 +646,14 @@
                                 displayMessage(message);
                             }
                         });
+
                         if (messages.length > 0) {
                             lastCheck = messages[messages.length - 1].created_at;
-                            console.log("Updated lastCheck to:", lastCheck);
                         }
                     })
                     .catch(error => console.error('Error fetching messages:', error));
             }
+
             
             function updateExistingMessage(existingMessage, updatedMessage) {
                 if (existingMessage.find('.message-content').text() !== updatedMessage.message) {

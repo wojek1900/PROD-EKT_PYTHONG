@@ -1007,37 +1007,70 @@ def delete_private_message():
 
 
 
-@app.route('/edit_private_message/<message_id>', methods=['POST'])
+@app.route('/edit_private_message/<int:message_id>', methods=['POST'])
 @login_required
 def edit_private_message(message_id):
     message = PrivateMessage.query.get_or_404(message_id)
-    if message.sender != current_user:
-        return jsonify({"status": "error", "message": "You can only edit your own messages"}), 403
+    if message.sender_id != current_user.id:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 403
 
-    new_content = request.form.get('text')
-    attachments_to_keep = json.loads(request.form.get('attachments', '[]'))
-    new_files = request.files.getlist('new_files')
+    message.message = request.form['message']
 
-    message.content = new_content
-
+    # Handle existing attachments
+    existing_attachment_ids = request.form.getlist('existing_attachments[]')
+    print(f"Existing attachments: {existing_attachment_ids}")
+    attachments_to_delete = []
     for attachment in message.attachments:
-        if not any(kept['id'] == str(attachment.id) for kept in attachments_to_keep):
-            db.session.delete(attachment)
-
+        if str(attachment.id) not in existing_attachment_ids:
+            attachments_to_delete.append(attachment)
+    print(f"Attachments to delete: {attachments_to_delete}")
+    # Handle new files
+    new_files = request.files.getlist('new_files[]')
+    new_attachments = []
     for file in new_files:
-        filename = secure_filename(file.filename)
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(file_path)
-        new_attachment = PrivateMessageAttachment(file_name=filename, original_filename=file.filename, file_type=file.content_type)
-        message.attachments.append(new_attachment)
-    db.session.commit()
+        if file:
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(file_path)
+            new_attachment = PrivateMessageAttachment(
+                file_name=filename,
+                original_filename=file.filename,
+                file_path=file_path,
+                file_type=file.content_type,
+                message_id=message.id,
+                created_at=datetime.now()
+            )
+            new_attachments.append(new_attachment)
+
+    # Update database in a single transaction
+    try:
+        for attachment in attachments_to_delete:
+            db.session.delete(attachment)
+        for new_attachment in new_attachments:
+            db.session.add(new_attachment)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+    # Prepare response data
+    attachments_data = [{
+    'id': att.id,
+    'type': 'img' if att.file_type.startswith('image/') else
+            'video' if att.file_type.startswith('video/') else
+            'audio' if att.file_type.startswith('audio/') else 'file',
+    'src': url_for('static', filename=f'uploads/{att.file_name}'),
+    'name': att.original_filename  # Dodaj nazwę oryginalnego pliku
+    } for att in message.attachments]
 
     return jsonify({
         "status": "OK",
         "message": "Message updated successfully",
-        "attachments": [{"id": att.id, "file_name": att.file_name, "file_type": att.file_type} for att in message.attachments]
+        "attachments": attachments_data
     })
-
+        
+        
+        
 
 
 @app.route('/get_new_messages/<int:friend_id>')
