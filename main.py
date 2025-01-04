@@ -1,6 +1,8 @@
 import os
 import time
 import logging
+import random
+import string
 import json
 from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
@@ -132,27 +134,27 @@ class User(db.Model, UserMixin):
 
 
 
+
+
 class Group(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
     zdjecie_wskaznik = db.Column(db.String(255), nullable=False)
-    join_code = db.Column(db.String(10), unique=True, nullable=False)
+    join_code = db.Column(db.String(6), unique=True, nullable=False)
+    group_creator = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
     users = db.relationship('User', secondary='group_users', backref=db.backref('groups', lazy='dynamic'))
     messages = db.relationship('GroupMessage', backref='group', lazy='dynamic', cascade="all, delete-orphan")
     reactions = db.relationship('GroupReaction', backref='group', lazy='dynamic', cascade="all, delete-orphan")
-    attachments = db.relationship('GroupAttachment', backref='group', lazy='dynamic', cascade="all, delete-orphan")
 
     def generate_join_code(self):
-        return ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
+        return ''.join(random.choices(string.ascii_uppercase + string.digits, k=20))
 
     def __init__(self, **kwargs):
         super(Group, self).__init__(**kwargs)
         if not self.join_code:
             self.join_code = self.generate_join_code()
-            
-            
-            
 
 class GroupUser(db.Model):
     __tablename__ = 'group_users'
@@ -160,17 +162,28 @@ class GroupUser(db.Model):
     group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     joined_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    admin = db.Column(db.Boolean, default=False)
 
+    group = db.relationship('Group', backref=db.backref('group_users', lazy='dynamic'))
+    user = db.relationship('User', backref=db.backref('user_groups', lazy='dynamic'))
+
+    def make_admin(self):
+        self.admin = True
+
+    def remove_admin(self):
+        self.admin = False
+        
+        
 class GroupMessage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    message = db.Column(db.String(4096), nullable=False)
+    message = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
-    edited_at = db.Column(db.DateTime, onupdate=db.func.current_timestamp())
-    is_edited = db.Column(db.Boolean, default=False)
 
     user = db.relationship('User', backref=db.backref('group_messages', lazy='dynamic'))
+    attachments = db.relationship('GroupMessageAttachment', back_populates='message', cascade="all, delete-orphan")
+    reactions = db.relationship('GroupReaction', back_populates='message', lazy='dynamic', cascade="all, delete-orphan")
 
 class GroupReaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -180,25 +193,24 @@ class GroupReaction(db.Model):
     reaction_type = db.Column(db.String(50), nullable=False)
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
 
+    message = db.relationship('GroupMessage', back_populates='reactions')
     user = db.relationship('User', backref=db.backref('group_reactions', lazy='dynamic'))
-    message = db.relationship('GroupMessage', backref=db.backref('reactions', lazy='dynamic'))
+    
 
-class GroupAttachment(db.Model):
+class GroupMessageAttachment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    message_id = db.Column(db.Integer, db.ForeignKey('group_message.id'), nullable=False)
     file_name = db.Column(db.String(255), nullable=False)
-    file_path = db.Column(db.String(1024), nullable=False)
-    file_type = db.Column(db.String(50), nullable=False)
     original_filename = db.Column(db.String(255), nullable=False)
-    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    file_path = db.Column(db.String(255), nullable=False)
+    file_type = db.Column(db.String(100), nullable=False)
+    message_id = db.Column(db.Integer, db.ForeignKey('group_message.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    user = db.relationship('User', backref=db.backref('group_attachments', lazy='dynamic'))
-    message = db.relationship('GroupMessage', backref=db.backref('attachments', lazy='dynamic'))
-    
-    
-    
+    message = db.relationship('GroupMessage', back_populates='attachments')
+
+
+
+
 class PrivateMessage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -211,7 +223,7 @@ class PrivateMessage(db.Model):
     recipient = db.relationship('User', foreign_keys=[recipient_id], backref=db.backref('received_messages', lazy='dynamic'))
     reactions = db.relationship('PrivateMessageReaction', back_populates='private_message', cascade="all, delete-orphan")
 
-    
+
 
 class PrivateMessageAttachment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -221,11 +233,11 @@ class PrivateMessageAttachment(db.Model):
     file_type = db.Column(db.String(50), nullable=False)
     original_filename = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
-    
+
     private_message = db.relationship('PrivateMessage', back_populates='attachments')
 
 
-    
+
 class PrivateMessageReaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -236,8 +248,8 @@ class PrivateMessageReaction(db.Model):
     user = db.relationship('User', backref=db.backref('private_message_reactions', lazy='dynamic'))
     private_message = db.relationship('PrivateMessage', back_populates='reactions')
 
-    
-    
+
+
 
 class PostAttachment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -702,7 +714,7 @@ def edit_post(post_id):
         db.session.commit()
 
         updated_attachments = [{"id": att.id, "filename": att.original_filename, "type": att.file_type} for att in post.post_attachments]
-        
+
         return jsonify({
             "status": "OK", 
             "message": "Post został zaktualizowany.", 
@@ -873,8 +885,8 @@ def private_chat(friend_id):
     return render_template('private_chat.html', friend=friend, messages=messages)
 
 
-    
-    
+
+
 @app.route('/send_private_message/<int:recipient_id>', methods=['POST'])
 @login_required
 def send_private_message(recipient_id):
@@ -894,7 +906,7 @@ def send_private_message(recipient_id):
                 unique_filename = f"{uuid.uuid4()}{file_extension}"
                 file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
                 file.save(file_path)
-                
+
                 attachment = PrivateMessageAttachment(
                     message_id=new_message.id,
                     file_name=unique_filename,
@@ -921,9 +933,9 @@ def send_private_message(recipient_id):
         db.session.rollback()
         app.logger.error(f"Error in send_private_message: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
-    
 
-    
+
+
 
 @app.route('/download_private_file/<int:attachment_id>')
 @login_required
@@ -938,16 +950,16 @@ def download_private_file(attachment_id):
         download_name=attachment.original_filename,
         mimetype=attachment.file_type
     )
-    
-    
-    
+
+
+
 
 @app.route('/react_to_message', methods=['POST'])
 @login_required
 def react_to_message():
     message_id = request.form.get('message_id')
     reaction_type = request.form.get('reaction_type')
-    
+
     print(f"Received request: message_id={message_id}, reaction_type={reaction_type}")  # Debug log
 
     if message_id and reaction_type:
@@ -979,7 +991,7 @@ def react_to_message():
             db.session.rollback()
             print(f"Error occurred: {str(e)}")  # Debug log
             return jsonify({'status': 'error', 'message': f'Database error: {str(e)}'})
-    
+
     print("Invalid data received")  # Debug log
     return jsonify({'status': 'error', 'message': 'Invalid data'})
 
@@ -1068,9 +1080,9 @@ def edit_private_message(message_id):
         "message": "Message updated successfully",
         "attachments": attachments_data
     })
-        
-        
-        
+
+
+
 
 
 @app.route('/get_new_messages/<int:friend_id>')
@@ -1089,7 +1101,7 @@ def get_new_messages(friend_id):
                 reactions[reaction.reaction_type] += 1
             else:
                 reactions[reaction.reaction_type] = 1
-        
+
         user_reaction = next((r.reaction_type for r in msg.reactions if r.user_id == current_user.id), None)
         reactions['user_reaction'] = user_reaction
 
@@ -1118,74 +1130,125 @@ def get_new_messages(friend_id):
 @app.route('/group_chat/<int:group_id>')
 @login_required
 def group_chat(group_id):
-    page = request.args.get('page', 1, type=int)
-    per_page = 20  # Ilość wiadomości na stronę
     group = Group.query.get_or_404(group_id)
-    messages = GroupMessage.query.filter_by(group_id=group_id).order_by(GroupMessage.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
-    return render_template('group_chat.html', group=group, messages=messages)
+    if current_user not in group.users:
+        flash('You are not a member of this group.', 'error')
+        return redirect(url_for('main'))
+    return render_template('group_chat.html', group=group, messages=group.messages)
+
+
+
 
 @app.route('/create_group', methods=['POST'])
 @login_required
 def create_group():
     name = request.form.get('name')
     if not name:
-        return jsonify({'error': 'Group name is required'}), 400
+        return jsonify({'status': 'error', 'message': 'Group name is required'}), 400
 
-    new_group = Group(name=name, zdjecie_wskaznik='basics/group.png')
+    new_group = Group(name=name, zdjecie_wskaznik='basics/group.png', group_creator=current_user.id)
     new_group.users.append(current_user)
     db.session.add(new_group)
-    db.session.commit()
+    try:
+        db.session.commit()
+        return jsonify({
+            'status': 'success',
+            'message': 'Group created successfully',
+            'group_id': new_group.id,
+            'join_code': new_group.join_code
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': f'Database error: {str(e)}'}), 500
 
-    return jsonify({'message': 'Group created successfully', 'join_code': new_group.join_code}), 200
+
+
 
 @app.route('/join_group', methods=['POST'])
 @login_required
 def join_group():
     join_code = request.form.get('join_code')
     if not join_code:
-        return jsonify({'error': 'Join code is required'}), 400
+        return jsonify({'status': 'error', 'message': 'Join code is required'}), 400
 
     group = Group.query.filter_by(join_code=join_code).first()
     if not group:
-        return jsonify({'error': 'Invalid join code'}), 404
+        return jsonify({'status': 'error', 'message': 'Invalid join code'}), 404
 
     if current_user in group.users:
-        return jsonify({'error': 'You are already a member of this group'}), 400
+        return jsonify({'status': 'error', 'message': 'You are already a member of this group'}), 400
 
-    if group.creator_id == current_user.id:  # Zakładając, że mamy pole creator_id w modelu Group
-        return jsonify({'error': 'You cannot join your own group'}), 400
+    if group.group_creator == current_user.id:
+        return jsonify({'status': 'error', 'message': 'You cannot join your own group'}), 400
 
     group.users.append(current_user)
-    db.session.commit()
+    try:
+        db.session.commit()
+        return jsonify({'status': 'success', 'message': 'Joined group successfully', 'group_id': group.id}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': f'Database error: {str(e)}'}), 500
 
-    return jsonify({'message': 'Joined group successfully'}), 200
 
 
 
-@app.route('/send_group_message', methods=['POST'])
+@app.route('/send_group_message/<int:group_id>', methods=['POST'])
 @login_required
-def send_group_message():
-    group_id = request.form.get('group_id')
-    message = request.form.get('message')
-    if not group_id or not message:
-        return jsonify({'error': 'Group ID and message are required'}), 400
+def send_group_message(group_id):
+    try:
+        group = Group.query.get_or_404(group_id)
+        if current_user not in group.users:
+            return jsonify({"status": "error", "message": "You are not a member of this group"}), 403
+        message_text = request.form.get('message')
+        files = request.files.getlist('files')
+        if not message_text and not files:
+            return jsonify({"status": "error", "message": "No message or files provided"}), 400
 
-    group = Group.query.get(group_id)
-    if not group or current_user not in group.users:
-        return jsonify({'error': 'Invalid group or you are not a member'}), 403
+        new_message = GroupMessage(user_id=current_user.id, group_id=group_id, message=message_text)
+        db.session.add(new_message)
+        db.session.flush() 
 
-    new_message = GroupMessage(group_id=group_id, user_id=current_user.id, message=message)
-    db.session.add(new_message)
-    db.session.commit()
+        attachments = []
+        for file in files:
+            if file:
+                original_filename = secure_filename(file.filename)
+                file_extension = os.path.splitext(original_filename)[1]
+                unique_filename = f"{uuid.uuid4()}{file_extension}"
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+                file.save(file_path)
 
-    return jsonify({
-        'success': True,
-        'message': 'Message sent successfully',
-        'message_id': new_message.id,
-        'sender': current_user.nick,
-        'content': message,
-        'timestamp': new_message.created_at.strftime('%Y-%m-%d %H:%M:%S')
-    }), 200
+                attachment = GroupMessageAttachment(
+                    message_id=new_message.id,
+                    file_name=unique_filename,
+                    original_filename=original_filename,
+                    file_path=file_path,
+                    file_type=file.content_type
+                )
+                db.session.add(attachment)
+                attachments.append({
+                    "file_name": unique_filename,
+                    "original_filename": original_filename,
+                    "file_path": file_path,
+                    "file_type": file.content_type
+                })
+        db.session.commit()
+        return jsonify({
+            "status": "OK",
+            "message": new_message.message,
+            "message_id": new_message.id,
+            "sender_id": current_user.id,
+            "sender_nick": current_user.nick,
+            "created_at": new_message.created_at.isoformat(),
+            "attachments": attachments
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error in send_group_message: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+
 
 
 @app.route('/leave_group', methods=['POST'])
@@ -1193,19 +1256,220 @@ def send_group_message():
 def leave_group():
     group_id = request.form.get('group_id')
     if not group_id:
-        return jsonify({'error': 'Group ID is required'}), 400
+        return jsonify({'status': 'error', 'message': 'Group ID is required'}), 400
 
     group = Group.query.get(group_id)
     if not group:
-        return jsonify({'error': 'Invalid group'}), 404
+        return jsonify({'status': 'error', 'message': 'Invalid group'}), 404
 
     if current_user not in group.users:
-        return jsonify({'error': 'You are not a member of this group'}), 400
+        return jsonify({'status': 'error', 'message': 'You are not a member of this group'}), 400
+
+    if group.group_creator == current_user.id:
+        return jsonify({'status': 'error', 'message': 'Group creator cannot leave the group'}), 400
 
     group.users.remove(current_user)
+    try:
+        db.session.commit()
+        return jsonify({'status': 'success', 'message': 'Left group successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': f'Database error: {str(e)}'}), 500
+
+
+
+
+
+@app.route('/get_group_messages/<int:group_id>')
+@login_required
+def get_group_messages(group_id):
+    group = Group.query.get_or_404(group_id)
+    if current_user not in group.users:
+        return jsonify({'status': 'error', 'message': 'You are not a member of this group'}), 403
+
+    messages = GroupMessage.query.filter_by(group_id=group_id).order_by(GroupMessage.created_at).all()
+
+    messages_data = []
+    for msg in messages:
+        reactions = {}
+        for reaction in msg.reactions:
+            if reaction.reaction_type in reactions:
+                reactions[reaction.reaction_type] += 1
+            else:
+                reactions[reaction.reaction_type] = 1
+
+        user_reaction = next((r.reaction_type for r in msg.reactions if r.user_id == current_user.id), None)
+        reactions['user_reaction'] = user_reaction
+
+        messages_data.append({
+            'id': msg.id,
+            'sender_id': msg.user_id,
+            'sender_nick': msg.user.nick,
+            'message': msg.message,
+            'created_at': msg.created_at.isoformat(),
+            'reactions': reactions,
+            "attachments": [
+                {
+                    "id": attachment.id,
+                    "file_name": attachment.file_name,
+                    "original_filename": attachment.original_filename,
+                    "file_path": attachment.file_path,
+                    "file_type": attachment.file_type
+                } for attachment in msg.attachments
+            ]
+        })
+
+    return jsonify({'status': 'success', 'messages': messages_data})
+
+
+
+
+
+
+@app.route('/react_to_group_message', methods=['POST'])
+@login_required
+def react_to_group_message():
+    message_id = request.form.get('message_id')
+    reaction_type = request.form.get('reaction_type')
+
+    print(f"Received request: message_id={message_id}, reaction_type={reaction_type}")  # Debug log
+
+    if message_id and reaction_type:
+        message = GroupMessage.query.get_or_404(message_id)
+        if current_user not in message.group.users:
+            return jsonify({'status': 'error', 'message': 'Unauthorized'}), 403
+
+        existing_reaction = GroupReaction.query.filter_by(
+            message_id=message_id, user_id=current_user.id
+        ).first()
+
+        try:
+            if existing_reaction:
+                if existing_reaction.reaction_type == reaction_type:
+                    print(f"Deleting existing reaction: {existing_reaction}")  # Debug log
+                    db.session.delete(existing_reaction)
+                else:
+                    print(f"Updating existing reaction: {existing_reaction} to {reaction_type}")  # Debug log
+                    existing_reaction.reaction_type = reaction_type
+            else:
+                new_reaction = GroupReaction(
+                    group_id=message.group_id,  
+                    message_id=message_id,
+                    user_id=current_user.id,
+                    reaction_type=reaction_type
+                )
+                print(f"Adding new reaction: {new_reaction}")  # Debug log
+                db.session.add(new_reaction)
+
+            db.session.commit()
+            print("Database session committed successfully")  # Debug log
+            return jsonify({'status': 'success', 'message': 'Reaction updated'})
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error occurred: {str(e)}")  # Debug log
+            return jsonify({'status': 'error', 'message': f'Database error: {str(e)}'})
+
+    print("Invalid data received")  # Debug log
+    return jsonify({'status': 'error', 'message': 'Invalid data'})
+
+@app.route('/delete_group_message', methods=['POST'])
+@login_required
+def delete_group_message():
+    message_id = request.form.get('message_id')
+    message = GroupMessage.query.get_or_404(message_id)
+
+    if message.user_id != current_user.id and current_user.id != message.group.group_creator:
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 403
+
+    for attachment in message.attachments:
+        os.remove(attachment.file_path)
+        db.session.delete(attachment)
+
+    db.session.delete(message)
     db.session.commit()
 
-    return jsonify({'message': 'Left group successfully'}), 200
+    return jsonify({'status': 'success', 'message': 'Message deleted'})
+
+@app.route('/edit_group_message/<int:message_id>', methods=['POST'])
+@login_required
+def edit_group_message(message_id):
+    message = GroupMessage.query.get_or_404(message_id)
+    if message.user_id != current_user.id:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 403
+
+    message.message = request.form['message']
+
+    # Handle existing attachments
+    existing_attachment_ids = request.form.getlist('existing_attachments[]')
+    print(f"Existing attachments: {existing_attachment_ids}")
+    attachments_to_delete = []
+    for attachment in message.attachments:
+        if str(attachment.id) not in existing_attachment_ids:
+            attachments_to_delete.append(attachment)
+    print(f"Attachments to delete: {attachments_to_delete}")
+
+    # Handle new files
+    new_files = request.files.getlist('new_files[]')
+    new_attachments = []
+    for file in new_files:
+        if file:
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(file_path)
+            new_attachment = GroupMessageAttachment(
+                file_name=filename,
+                original_filename=file.filename,
+                file_path=file_path,
+                file_type=file.content_type,
+                message_id=message.id,
+                created_at=datetime.now()
+            )
+            new_attachments.append(new_attachment)
+
+    # Update database in a single transaction
+    try:
+        for attachment in attachments_to_delete:
+            db.session.delete(attachment)
+        for new_attachment in new_attachments:
+            db.session.add(new_attachment)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+    # Prepare response data
+    attachments_data = [{
+        'id': att.id,
+        'type': 'img' if att.file_type.startswith('image/') else
+                'video' if att.file_type.startswith('video/') else
+                'audio' if att.file_type.startswith('audio/') else 'file',
+        'src': url_for('static', filename=f'uploads/{att.file_name}'),
+        'name': att.original_filename
+    } for att in message.attachments]
+
+    return jsonify({
+        "status": "OK",
+        "message": "Message updated successfully",
+        "attachments": attachments_data
+    })
+
+@app.route('/download_group_file/<int:attachment_id>')
+@login_required
+def download_group_file(attachment_id):
+    attachment = GroupMessageAttachment.query.get_or_404(attachment_id)
+    if current_user not in attachment.message.group.users:
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 403
+
+    uploads_dir = os.path.join(app.root_path, 'static', 'uploads')
+    file_path = os.path.join(uploads_dir, attachment.file_name)
+
+    return send_file(
+        file_path, 
+        as_attachment=True,
+        download_name=attachment.original_filename,
+        mimetype=attachment.file_type
+    )
+
 
 
 
@@ -1223,6 +1487,14 @@ if __name__ == "__main__":
             db.session.add(user_role)
 
         db.session.commit()
+        
+        if not User.query.filter_by(nick='test').first():
+            user = User(nick='test', password=generate_password_hash('test'), mail='test@test.com')
+            db.session.add(user)
+            user1 = User(nick='test1', password=generate_password_hash('test1'), mail='test1@test.com')
+            db.session.add(user1)
+            
+            db.session.commit()
 
     app.run(host='0.0.0.0', port=5555, debug=True)
 
