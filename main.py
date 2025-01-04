@@ -1498,20 +1498,29 @@ if __name__ == "__main__":
 
     app.run(host='0.0.0.0', port=5555, debug=True)
 
-# co jak najszybciej
-# naprawić czat że tylko wiadomości się odświeżają i to najnowsze a powinny wszystkie z reakcjami i edycjami wrazie co
-# dodawania załączników wymaga odświeżenia co trzeba naprawić powinny się normalnie wczytać
-# edytowanie wiadomości między osobami (póki co tylko tuż po wysłaniu to działa i nie edytuje a jest menu edycji)
-# zrobienie możliwości zalogowaniea się na 2 konta w jednej przeglądarce bo aktualnie działa to na plikach cookie 
 
-# co w tym tygodniu spróbuje zrobić
+# co jak najszybciej
+# usuwanie grup przez właściciela grupy
+# dodanie adminów do grup
+# dodanie możliwości usuwania wiadomości w grupach dla adminów
+# dodać opis grupy i jej członków
+# poprawnie wyświetlanie we wiadomosciach prywatnych i grupach avatarów i odnośników do ich profilów
+# właściciel grupy może usuwać i dodawać adminów w grupie
+# dodanie przycisku dla twurcy i adminów grupy kod dostępu
+# formatowanie tekstu w postach wiadomościach komentarzach i opisach
+# dodać system przyjmowania znajomych
+# dodać system ignorowania osób
+
+
+
+
+# co w następnym tygodniu spróbuje zrobić
 # usuwanie komentarzy z postów
 # naprawić robienie postów i dodanie plików a potem ich usuwanie 
-# naprawić przekierowanie na strone posta działa tylko na stronie głównej
+# naprawić przekierowanie na strony czasem działa czasem nei zalezy gdzie się jest wystarczy poprawić odsyłanie na odpowiednie
 # naprawić nie ma opcji edycji usuwania postów dodawani komentarzy itd w profilu w stronie postu 
 # naprawić brak wyświetlania poprawnej liczby komentarzy kiedy się ich nie odsłoni bo zawsze jest 0 na początku
 # naprawić to żeby admin nie widział przycisku do edycji 
-# dodać możliwość robienia grup i społeczności (zakładka społeczności i prywatne) i inne funkcje z tym związane
 # dodać powiadomienia
 
 
@@ -1524,18 +1533,15 @@ if __name__ == "__main__":
 
 ################################################################
 # co trzeba zrobić, aby ładnie wyglądało:
+# - w sumie i tak zmienić cały design
 # - naprawić aby flask działał z fetch
 # - ulepszyć wyglląd main.html
 # - dodać ładne przejście fetch z animacjom po zalogowaniu
 # - urzyć zwykłych przejść fetchowych w innych zakładkach
-# - przywrócić system particle pozbywając się problemu z zapychaniemie pamięci oraz dodać opcje kliknięcia aby zmienić mouseForce na -10
+# - przywrócić system particle dodać opcje kliknięcia aby zmienić mouseForce na -10
 ################################################################
-# co zrobić aby wszystko działało:
-# - dodać opcję robienia grup
-# - dodać opcję dołączenia do grup
-# - dodać opcję usuwania z grup
-# - powiadomienia o nowych wiadomościach
+# - powiadomienia o wszystkim
 # - zlinkowanie AI jak llama czy qwen do analizy komentarzy i danych
 # - jak wszystko się uda sprubować urzywając tensorflowa wybierać trafne treści dla urzytkownika
-###
+################################################################
 
