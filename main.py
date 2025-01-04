@@ -1499,7 +1499,9 @@ if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5555, debug=True)
 
 
-# co jak najszybciej
+# co jak najszybciej #########################################
+#
+# POPRAWIĆ POBIERANIE ZAŁĄCZNIKÓW
 # usuwanie grup przez właściciela grupy
 # dodanie adminów do grup
 # dodanie możliwości usuwania wiadomości w grupach dla adminów
@@ -1510,7 +1512,7 @@ if __name__ == "__main__":
 # formatowanie tekstu w postach wiadomościach komentarzach i opisach
 # dodać system przyjmowania znajomych
 # dodać system ignorowania osób
-
+################################################################
 
 
 
