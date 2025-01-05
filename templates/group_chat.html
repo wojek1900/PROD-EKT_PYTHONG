@@ -22,6 +22,15 @@
 
     <div>
     <h1>Group Chat: {{ group.name }}</h1>
+    <div id="group-image-container">
+        <img class="group-image" src="{{ url_for('static', filename='uploads/' + group.zdjecie_wskaznik) if group.zdjecie_wskaznik else 'basics/group.png' }}" alt="{{ group.name }} image">
+        {% if current_user.id == group.group_creator %}
+            <form action="{{ url_for('update_group_image', group_id=group.id) }}" method="POST" enctype="multipart/form-data">
+                <input type="file" name="group_image" accept="image/*">
+                <button type="submit">Update Group Image</button>
+            </form>
+        {% endif %}
+    </div>
     {% if current_user.id == group.group_creator %}
     <h2>Group Join Code: <h2 class="code">{{ group.join_code }}</h2></h2>
     {% endif %}
@@ -116,10 +125,28 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.status === 'success') {
-                        // Update group description
                         $('#group-description').text(data.description);
-                        
-                        // Update user list and admin status
+                        const groupImage = $('.group-image');
+                        if (data.zdjecie_wskaznik) {
+                            console.log(data.zdjecie_wskaznik);
+                            console.log(data.version);
+                            const imageUrl = `{{ url_for('static', filename='uploads/') }}${data.zdjecie_wskaznik}?v=${data.version}`;
+                            const currentSrc = groupImage.attr('src').split('?')[0];
+                            const newSrc = imageUrl.split('?')[0];
+                            
+                            if (currentSrc !== newSrc || !groupImage.attr('src').includes('v=')) {
+                                console.log("Updating group image");
+                                groupImage.attr('src', imageUrl);
+                            } else {
+                                // Force image refresh by updating the 'src' attribute
+                                groupImage.attr('src', function(index, oldValue) {
+                                    return oldValue.split('?')[0] + '?v=' + new Date().getTime();
+                                });
+                            }
+                        } else {
+                            groupImage.attr('src', "{{ url_for('static', filename='basics/group.png') }}");
+                        }
+
                         const userListContainer = $('#user-list');
                         userListContainer.empty();
                         data.users.forEach(user => {
@@ -138,12 +165,10 @@
                             userListContainer.append(userElement);
                         });
     
-                        // Update join code if current user is the group creator
                         if ({{ current_user.id }} == data.group_creator) {
                             $('.code').text(data.join_code);
                         }
     
-                        // Reattach event listeners for admin buttons
                         attachAdminButtonListeners();
                     } else {
                         console.error('Error fetching group info:', data.message);
@@ -295,7 +320,16 @@
         {% for message in messages %}
             <div class="message-container {% if message.user_id == current_user.id %}sent{% else %}received{% endif %}">
                 <div class="message-box" data-message-id="{{ message.id }}">
-                    <strong>{{ message.user.nick }}:</strong> 
+                    <a href="{{ url_for('user_profile', user_id=message.user.id) }}" class="user-profile-link">
+                        <div class="message-header">
+                            {% if message.user.zdjecie_wskaznik == "basics/profile.png" %}
+                                <img src="{{ url_for('static', filename='basics/profile.png') }}" alt="Default profile picture" class="profile-picture">
+                            {% elif message.user.zdjecie_wskaznik %}
+                                <img src="{{ url_for('static', filename='uploads/' + message.user.zdjecie_wskaznik) }}" alt="{{ message.user.nick }}'s profile picture" class="profile-picture">
+                            {% endif %}
+                            <strong class="author-name">{{ message.user.nick }}</strong>
+                        </div>
+                    </a>
                     <span class="message-content">{{ message.message }}</span>
                     {% if message.attachments %}
                     <div class="attachments">
@@ -789,24 +823,32 @@
             const senderNick = message.sender_nick;
             const isCurrentUser = message.sender_id == {{ current_user.id }};
             let messageHtml = `
-                <div class="message-container ${messageClass}">
-                    <div class="message-box" data-message-id="${message.id}">
-                        <strong>${senderNick}:</strong> 
-                        <span class="message-content">${message.message}</span>
-                        ${!isCurrentUser ? `
-                        <div class="reactions">
-                            <span class="reaction-btn" data-reaction="👍">👍</span>
-                            <span class="reaction-btn" data-reaction="❤️">❤️</span>
-                            <span class="reaction-btn" data-reaction="😂">😂</span>
-                            <span class="reaction-btn" data-reaction="😮">😮</span>
-                            <span class="reaction-btn" data-reaction="😢">😢</span>
-                        </div>
-                        ` : ''}
-                        <div class="active-reactions"></div>
-                        <div class="attachments"></div>
+            <div class="message-container ${messageClass}">
+                <div class="message-box" data-message-id="${message.id}">
+                    <div class="message-header">
+                        <a href="/user/${message.sender_id}" class="user-profile-link">
+                            <img src="${message.sender_zdjecie_wskaznik === 'basics/profile.png' ? 
+                                '/static/basics/profile.png' : 
+                                '/static/uploads/' + message.sender_zdjecie_wskaznik}" 
+                                alt="${senderNick}" class="profile-picture">
+                            <strong class="author-name">${senderNick}</strong>
+                        </a>
                     </div>
+                    <span class="message-content">${message.message}</span>
+                    ${!isCurrentUser ? `
+                    <div class="reactions">
+                        <span class="reaction-btn" data-reaction="👍">👍</span>
+                        <span class="reaction-btn" data-reaction="❤️">❤️</span>
+                        <span class="reaction-btn" data-reaction="😂">😂</span>
+                        <span class="reaction-btn" data-reaction="😮">😮</span>
+                        <span class="reaction-btn" data-reaction="😢">😢</span>
+                    </div>
+                    ` : ''}
+                    <div class="attachments"></div>
+                    <div class="active-reactions"></div>
                 </div>
-            `;
+            </div>
+        `;
             
             const $messageElement = $(messageHtml);
             $('#chat-messages').append($messageElement);
@@ -949,7 +991,7 @@
                     console.log("Attachments have changed.");
                     updateAttachments(existingMessage, updatedMessage.attachments);
                 } else {
-                    console.log("Attachments have not changed");
+                    //console.log("Attachments have not changed");
                 }
             }
 

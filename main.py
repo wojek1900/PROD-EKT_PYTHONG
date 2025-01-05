@@ -144,7 +144,8 @@ class Group(db.Model):
     group_creator = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     description = db.Column(db.String(4096), nullable=True)
-    
+    zdjecie_version = db.Column(db.Integer, default=1)
+
     users = db.relationship('User', secondary='group_users', backref=db.backref('groups', lazy='dynamic'))
     messages = db.relationship('GroupMessage', backref='group', lazy='dynamic', cascade="all, delete-orphan")
     reactions = db.relationship('GroupReaction', backref='group', lazy='dynamic', cascade="all, delete-orphan")
@@ -156,6 +157,22 @@ class Group(db.Model):
     def admin_ids(self):
         return [gu.user_id for gu in self.group_users if gu.admin]
     
+    def update_group_image(self, new_image_filename):
+        if new_image_filename:
+            # Delete the old image file if it's not the default
+            if self.zdjecie_wskaznik != 'basics/group.png':
+                old_image_path = os.path.join(app.config['UPLOAD_FOLDER'], self.zdjecie_wskaznik)
+                if os.path.exists(old_image_path):
+                    os.remove(old_image_path)
+            
+            # Update the zdjecie_wskaznik with the new filename
+            self.zdjecie_wskaznik = new_image_filename
+            db.session.commit()
+        else:
+            # If no new image is provided, set to default
+            self.zdjecie_wskaznik = 'basics/group.png'
+            db.session.commit()
+            
     def __init__(self, **kwargs):
         super(Group, self).__init__(**kwargs)
         if not self.join_code:
@@ -1317,6 +1334,7 @@ def get_group_messages(group_id):
             'id': msg.id,
             'sender_id': msg.user_id,
             'sender_nick': msg.user.nick,
+            "sender_zdjecie_wskaznik": msg.user.zdjecie_wskaznik,
             'message': msg.message,
             'created_at': msg.created_at.isoformat(),
             'reactions': reactions,
@@ -1560,20 +1578,87 @@ def get_group_info(group_id):
     group = Group.query.get_or_404(group_id)
     if current_user not in group.users:
         return jsonify({'status': 'error', 'message': 'You are not a member of this group'}), 403
-
     users_data = [{
         'id': user.id,
         'nick': user.nick,
         'is_admin': user.id in group.admin_ids
     } for user in group.users]
-
     return jsonify({
         'status': 'success',
         'description': group.description,
         'users': users_data,
         'group_creator': group.group_creator,
-        'join_code': group.join_code if current_user.id == group.group_creator else None
+        'join_code': group.join_code,
+        'zdjecie_wskaznik': group.zdjecie_wskaznik,
+        'version': group.zdjecie_version
     })
+
+
+
+from flask import send_file
+
+from flask import send_file
+import os
+
+@app.route('/static/uploads/<path:filename>')
+def serve_upload(filename):
+    uploads_folder = os.path.join(app.root_path, 'static', 'uploads')
+    file_path = os.path.join(uploads_folder, filename)
+    
+    if not os.path.exists(file_path):
+        return "File not found", 404
+
+    response = send_file(file_path)
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '-1'
+    return response
+
+@app.route('/update_group_image/<int:group_id>', methods=['POST'])
+@login_required
+def update_group_image(group_id):
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
+    def allowed_file(filename):
+        return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    group = Group.query.get_or_404(group_id)
+    
+    if current_user.id != group.group_creator:
+        flash('You do not have permission to update the group image.', 'error')
+        return redirect(url_for('group_chat', group_id=group_id))
+
+    if 'group_image' not in request.files:
+        flash('No file part', 'error')
+        return redirect(url_for('group_chat', group_id=group_id))
+    
+    file = request.files['group_image']
+    
+    if file.filename == '':
+        flash('No selected file', 'error')
+        return redirect(url_for('group_chat', group_id=group_id))
+    
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        file_extension = os.path.splitext(filename)[1]
+        new_filename = f"group_{group_id}{file_extension}"
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], new_filename)
+        
+        # Delete old image if it exists and is not the default
+        if group.zdjecie_wskaznik and group.zdjecie_wskaznik != "basics/default_group.png":
+            old_file_path = os.path.join(app.config['UPLOAD_FOLDER'], group.zdjecie_wskaznik)
+            if os.path.exists(old_file_path):
+                os.remove(old_file_path)
+        
+        file.save(file_path)
+        group.zdjecie_wskaznik = new_filename
+        group.zdjecie_version += 1
+        db.session.commit()
+        flash('Group image updated successfully', 'success')
+    else:
+        flash('Invalid file type. Allowed types are png, jpg, jpeg, gif', 'error')
+    
+    return redirect(url_for('group_chat', group_id=group_id))
     
 
 
@@ -1601,35 +1686,29 @@ if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5555, debug=True)
 
 
-# co jak najszybciej #########################################
-# poprawnie wyświetlanie we wiadomosciach prywatnych i grupach avatarów i odnośników do ich profilów
-# formatowanie tekstu w postach wiadomościach komentarzach i opisach
-# wysyłanie wiadomości jakimś skrutem może być enter a shift enter to nowa linijka
-# dodać system przyjmowania znajomych
-# dodać system ignorowania osób
-################################################################
-
-
-
-# co w następnym tygodniu spróbuje zrobić
-# usuwanie komentarzy z postów
-# naprawić robienie postów i dodanie plików a potem ich usuwanie 
-# naprawić przekierowanie na strony czasem działa czasem nei zalezy gdzie się jest wystarczy poprawić odsyłanie na odpowiednie
-# naprawić nie ma opcji edycji usuwania postów dodawani komentarzy itd w profilu w stronie postu 
-# naprawić brak wyświetlania poprawnej liczby komentarzy kiedy się ich nie odsłoni bo zawsze jest 0 na początku
-# naprawić to żeby admin nie widział przycisku do edycji 
-# dodać powiadomienia (nowa baza danych pod urzytkownik gdzie jest ostatni raz kiedy urzytkownik był na kanale) trzeba zrobić fetch co 1s żeby sprawdzał czy gdzieś nie wysłano nowszej wiadomosci
-
-
-
-
-
-
-
-
 
 ################################################################
-# co trzeba zrobić, aby ładnie wyglądało:
+# (łatwe) poprawnie wyświetlanie we wiadomosciach prywatnych avatarów i odnośników do ich profilów (zrobione już w grupach)
+# (możę być trudne) formatowanie tekstu w postach wiadomościach komentarzach i opisach
+# (raczej łatwe) wysyłanie wiadomości jakimś skrutem może być enter a shift enter to nowa linijka
+# (dość trudne) dodać system przyjmowania znajomych dodać system ignorowania osób(po prostu nie może cie ktoś zaprosić do znajomych i automatycznie się z tamtąd usuwa)
+# (bardzo trudne) dodać get_user i get_posts żeby mieć informacje o danym użytkowniku i postach na bierząco żeby się odświerzały
+# (łatwe) dodać przeciąganie plików na formularz żeby dołączyć
+# (bardzo trudne)powiadomienia o wszystkim
+# (trudne) przeanalizować co można uprościć w projekcie np. jakies skrypty na pewno się powtarzają w jakiejś części
+# (raczej łatwe w zależności jak zrobimy)dodać AI po tokenie lub przez ollama bo po co się wysilać
+# (łatwe) poprawić wzystkie wady np. jak gdzies nie działa jakiś przycisk a powinien to naprawić. czy gdzieś nie ma opcji czegoś a powinna być to dodać. zwiększyć uprawnienia admina błędy jakie zaobserwowałem
+# (raczej łatwe) usuwanie komentarzy z postów
+# (trudne) naprawić robienie postów i dodanie plików a potem ich usuwanie 
+# (łatwe) naprawić przekierowanie na strony czasem działa czasem nei zalezy gdzie się jest wystarczy poprawić odsyłanie na odpowiednie
+# (do ogarnięcia) naprawić nie ma opcji edycji usuwania postów dodawani komentarzy itd w profilu w stronie postu naprawić trzeba 
+# (do ogarnięcia) naprawić brak wyświetlania poprawnej liczby komentarzy kiedy się ich nie odsłoni bo zawsze jest 0 na początku (już gdzies jest zrobione)
+# (łatwe) naprawić to żeby admin nie widział przycisku do edycji 
+# (bardzo trudne) dodać powiadomienia (nowa baza danych pod urzytkownik gdzie jest ostatni raz kiedy urzytkownik był na kanale) trzeba zrobić fetch co 1s żeby sprawdzał czy gdzieś nie wysłano nowszej wiadomosci
+################################################################
+
+################################################################
+# (najtrudniejsza część) co trzeba zrobić, aby ładnie wyglądało:
 # - w sumie i tak zmienić cały design
 # - naprawić aby flask działał z fetch
 # - ulepszyć wyglląd main.html
@@ -1637,8 +1716,5 @@ if __name__ == "__main__":
 # - urzyć zwykłych przejść fetchowych w innych zakładkach
 # - przywrócić system particle dodać opcje kliknięcia aby zmienić mouseForce na -10
 ################################################################
-# - powiadomienia o wszystkim
-# - zlinkowanie AI jak llama czy qwen do analizy komentarzy i danych
-# - jak wszystko się uda sprubować urzywając tensorflowa wybierać trafne treści dla urzytkownika
-################################################################
+
 

@@ -144,3 +144,20 @@
 .code:hover{
     filter: blur(0px);
 }
+
+.profile-picture {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-right: 10px;
+}
+
+.group-image{
+    width: 15%;
+    height: 15%;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-right: auto;
+    margin-left: auto;
+}
