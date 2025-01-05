@@ -20,7 +20,276 @@
         <a href="{{ url_for('logout') }}">Wyloguj się</a>
     </div>
 
+    <div>
     <h1>Group Chat: {{ group.name }}</h1>
+    {% if current_user.id == group.group_creator %}
+    <h2>Group Join Code: <h2 class="code">{{ group.join_code }}</h2></h2>
+    {% endif %}
+    </div>
+    <div>
+        <h3>Group Description:</h3>
+    <p id="group-description">{{ group.description }}</p>
+    {% if current_user.id == group.group_creator %}
+    <button id="edit-description-btn">Edit Description</button>
+    <div id="edit-description-container" style="display: none;">
+        <textarea id="description-input">{{ group.description }}</textarea>
+        <button id="save-description-btn">Save</button>
+        <button id="cancel-description-btn">Cancel</button>
+    </div>
+        {% endif %}
+
+
+        
+
+
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const editDescriptionBtn = document.getElementById('edit-description-btn');
+                const editDescriptionContainer = document.getElementById('edit-description-container');
+                const descriptionInput = document.getElementById('description-input');
+                const saveDescriptionBtn = document.getElementById('save-description-btn');
+                const cancelDescriptionBtn = document.getElementById('cancel-description-btn');
+                const groupDescription = document.getElementById('group-description');
+            
+                if (editDescriptionBtn) {
+                    editDescriptionBtn.addEventListener('click', function() {
+                        editDescriptionContainer.style.display = 'block';
+                        editDescriptionBtn.style.display = 'none';
+                    });
+            
+                    saveDescriptionBtn.addEventListener('click', function() {
+                        const newDescription = descriptionInput.value;
+                        const groupId = {{ group.id }};
+            
+                        fetch('/update_group_description', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ group_id: groupId, description: newDescription }),
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === 'success') {
+                                groupDescription.textContent = newDescription;
+                                editDescriptionContainer.style.display = 'none';
+                                editDescriptionBtn.style.display = 'block';
+                            } else {
+                                alert('Error: ' + data.message);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('An error occurred. Please try again.');
+                        });
+                    });
+            
+                    cancelDescriptionBtn.addEventListener('click', function() {
+                        editDescriptionContainer.style.display = 'none';
+                        editDescriptionBtn.style.display = 'block';
+                        descriptionInput.value = groupDescription.textContent;
+                    });
+                }
+            });
+            </script>
+
+            <h2>Users:</h2>
+            <div id="user-list">
+                
+                {% for user in group.users %}
+                <p>{{ user.nick }} 
+                    {% if current_user.id == group.group_creator and user.id != group.group_creator %}
+                        <button class="make-admin-btn" data-user-id="{{ user.id }}">
+                            {% if user.id in group.admin_ids %}Remove admin{% else %}Make admin{% endif %}
+                        </button>
+                    {% endif %}
+                    <span class="admin-status">{% if user.id in group.admin_ids %}(Admin){% endif %}</span>
+                </p>
+                {% endfor %}
+            </div>
+    </div>
+    <script>
+        function fetchGroupInfo() {
+            const groupId = {{ group.id }};
+            fetch(`/get_group_info/${groupId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        // Update group description
+                        $('#group-description').text(data.description);
+                        
+                        // Update user list and admin status
+                        const userListContainer = $('#user-list');
+                        userListContainer.empty();
+                        data.users.forEach(user => {
+                            const userElement = $('<p>').text(user.nick);
+                            if ({{ current_user.id }} == data.group_creator && user.id != data.group_creator) {
+                                const adminButton = $('<button>')
+                                    .addClass('make-admin-btn')
+                                    .attr('data-user-id', user.id)
+                                    .text(user.is_admin ? 'Remove admin' : 'Make admin');
+                                userElement.append(adminButton);
+                            }
+                            const adminStatus = $('<span>')
+                                .addClass('admin-status')
+                                .text(user.is_admin ? '(Admin)' : '');
+                            userElement.append(adminStatus);
+                            userListContainer.append(userElement);
+                        });
+    
+                        // Update join code if current user is the group creator
+                        if ({{ current_user.id }} == data.group_creator) {
+                            $('.code').text(data.join_code);
+                        }
+    
+                        // Reattach event listeners for admin buttons
+                        attachAdminButtonListeners();
+                    } else {
+                        console.error('Error fetching group info:', data.message);
+                    }
+                })
+                .catch(error => console.error('Error fetching group info:', error));
+        }
+    
+        function attachAdminButtonListeners() {
+            $('.make-admin-btn').off('click').on('click', function() {
+                const userId = $(this).data('userId');
+                const groupId = {{ group.id }};
+                
+                fetch(`/toggle_group_admin/${groupId}/${userId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        $(this).text(data.is_admin ? 'Remove admin' : 'Make admin');
+                        $(this).next('.admin-status').text(data.is_admin ? '(Admin)' : '');
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred. Please try again.');
+                });
+            });
+        }
+    
+        // Initial fetch and setup
+        fetchGroupInfo();
+    
+        // Set up periodic refresh
+        setInterval(fetchGroupInfo, 1000); 
+    </script>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const adminButtons = document.querySelectorAll('.make-admin-btn');
+            
+            adminButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const userId = this.dataset.userId;
+                    const groupId = {{ group.id }};
+                    
+                    fetch(`/toggle_group_admin/${groupId}/${userId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            // Update button text and admin status
+                            this.textContent = data.is_admin ? 'Remove admin' : 'Make admin';
+                            const adminStatus = this.nextElementSibling;
+                            adminStatus.textContent = data.is_admin ? '(Admin)' : '';
+                        } else {
+                            alert('Error: ' + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An error occurred. Please try again.');
+                    });
+                });
+            });
+        });
+        </script>
+    <div>
+        {% if current_user.id == group.group_creator %}
+        <button id="delete_group">delete_group</button>
+        {% else %}
+        <button id="leave">leave</button>
+        {% endif %}
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const leaveButton = document.getElementById('leave');
+            const deleteButton = document.getElementById('delete_group');
+    
+            if (leaveButton) {
+                leaveButton.addEventListener('click', function() {
+                    if (confirm('Are you sure you want to leave this group?')) {
+                        const groupId = {{ group.id }};
+                        fetch('/leave_group', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ group_id: groupId }),
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === 'success') {
+                                alert(data.message);
+                                window.location.href = "{{ url_for('main') }}";
+                            } else {
+                                alert('Error: ' + data.message);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('An error occurred. Please try again.');
+                        });
+                    }
+                });
+            }
+    
+            if (deleteButton) {
+                deleteButton.addEventListener('click', function() {
+                    if (confirm('Are you sure you want to delete this group? This action cannot be undone.')) {
+                        const groupId = {{ group.id }};
+                        fetch('/delete_group', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ group_id: groupId }),
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === 'success') {
+                                alert(data.message);
+                                window.location.href = "{{ url_for('main') }}";
+                            } else {
+                                alert('Error: ' + data.message);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('An error occurred. Please try again.');
+                        });
+                    }
+                });
+            }
+        });
+    </script>
 
     <div id="chat-messages">
         {% for message in messages %}
@@ -66,10 +335,11 @@
                             <span class="active-reaction">{{ reaction.reaction_type }}</span>
                         {% endfor %}
                     </div>
-                    
-                    {% if message.user_id == current_user.id %}
+                    {% if message.user_id == current_user.id or current_user.id == group.group_creator or current_user.id in group.admin_ids %}
                         <div class="message-actions">
+                            {% if message.user_id == current_user.id %}
                             <button class="edit-btn">Edit</button>
+                            {% endif %}
                             <button class="delete-btn">Delete</button>
                         </div>
                         <div id="overlaymessages" style="display: none;">
@@ -505,7 +775,7 @@
                         attachmentsContainer.append(audio);
                     } else {
                         const link = $('<a>', {
-                            href: `/download_private_file/${attachment.id}`,
+                            href: `/download_group_file/${attachment.id}`,
                             text: `Pobierz ${attachment.original_filename}`
                         });
                         attachmentsContainer.append(link);
@@ -540,7 +810,6 @@
             
             const $messageElement = $(messageHtml);
             $('#chat-messages').append($messageElement);
-        
             if (isCurrentUser) {
                 const actionsHtml = `
                     <div class="message-actions">
@@ -553,8 +822,16 @@
                         <button type="button" class="cancel-edit">Cancel</button>
                     </form>
                 `;
+                
                 $messageElement.find('.message-box').append(actionsHtml);
-            }
+            } else if ({{ current_user.id }} == {{ group.group_creator }} || {{ group.admin_ids|tojson }}.includes({{ current_user.id }})) {
+                const actionsHtml = `
+                    <div class="message-actions">
+                        <button class="delete-btn">Delete</button>
+                    </div>
+                `;
+                $messageElement.find('.message-box').append(actionsHtml);
+            } 
         
             updateAttachments($messageElement.find('.message-box'), message.attachments);
             updateReactionUI($messageElement.find('.message-box'), message.reactions);
@@ -592,7 +869,7 @@
                         } else {
                             attachmentHtml = `
                                 <p data-id="${attachmentId}">
-                                    <a href="/download_private_file/${attachmentId}">Pobierz ${attachment.original_filename}</a>
+                                    <a href="/download_group_file/${attachmentId}">Pobierz ${attachment.original_filename}</a>
                                 </p>
                             `;
                         }
@@ -613,7 +890,6 @@
                             const messages = data.messages;
                             const receivedMessageIds = messages.map(message => message.id);
             
-                            // Remove messages that are not in the received data
                             $('.message-container').each(function() {
                                 const messageId = $(this).find('.message-box').data('message-id');
                                 if (!receivedMessageIds.includes(messageId)) {
@@ -621,7 +897,6 @@
                                 }
                             });
             
-                            // Update or add new messages
                             messages.forEach(message => {
                                 const existingMessage = $(`.message-box[data-message-id="${message.id}"]`);
                                 if (existingMessage.length) {
@@ -661,11 +936,9 @@
 
                 let attachmentsChanged = false;
 
-                // Sprawdź, czy liczba załączników się zmieniła
                 if (existingAttachments.length !== updatedAttachmentIds.length) {
                     attachmentsChanged = true;
                 } else {
-                    // Porównaj identyfikatory załączników
                     attachmentsChanged = !existingAttachments.every((id, index) => {
                         return id === updatedAttachmentIds[index] || 
                                (id.startsWith('temp_id_') && updatedAttachmentIds[index] === '');
@@ -725,7 +998,7 @@
             });
 
     
-            setInterval(fetchNewMessages, 500);
+            setInterval(fetchNewMessages, 50);
         
     </script>
 </body>

@@ -135,3 +135,12 @@
     margin: 5px;
     position: relative;
 }
+
+.code{
+    filter: blur(10px);
+    transition: filter 0.3s ease;
+}
+
+.code:hover{
+    filter: blur(0px);
+}

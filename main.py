@@ -7,7 +7,7 @@ import json
 from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
 from flask_login import current_user 
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_from_directory, send_file
+from flask import Flask, abort, render_template, request, redirect, url_for, flash, jsonify, send_from_directory, send_file
 from flask_security import Security, UserMixin, RoleMixin, SQLAlchemyUserDatastore
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import relationship
@@ -143,6 +143,7 @@ class Group(db.Model):
     join_code = db.Column(db.String(6), unique=True, nullable=False)
     group_creator = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    description = db.Column(db.String(4096), nullable=True)
     
     users = db.relationship('User', secondary='group_users', backref=db.backref('groups', lazy='dynamic'))
     messages = db.relationship('GroupMessage', backref='group', lazy='dynamic', cascade="all, delete-orphan")
@@ -151,6 +152,10 @@ class Group(db.Model):
     def generate_join_code(self):
         return ''.join(random.choices(string.ascii_uppercase + string.digits, k=20))
 
+    @property
+    def admin_ids(self):
+        return [gu.user_id for gu in self.group_users if gu.admin]
+    
     def __init__(self, **kwargs):
         super(Group, self).__init__(**kwargs)
         if not self.join_code:
@@ -940,17 +945,24 @@ def send_private_message(recipient_id):
 @app.route('/download_private_file/<int:attachment_id>')
 @login_required
 def download_private_file(attachment_id):
-    attachment = PostAttachment.query.get_or_404(attachment_id)
+    attachment = PrivateMessageAttachment.query.get_or_404(attachment_id)
+    
+    message = PrivateMessage.query.get(attachment.message_id)
+    if not message or (message.sender_id != current_user.id and message.recipient_id != current_user.id):
+        abort(403) 
+
     uploads_dir = os.path.join(app.root_path, 'static', 'uploads')
     file_path = os.path.join(uploads_dir, attachment.file_name)
 
+    if not os.path.exists(file_path):
+        abort(404) 
+
     return send_file(
-        file_path, 
-        as_attachment=True, 
+        file_path,
+        as_attachment=True,
         download_name=attachment.original_filename,
         mimetype=attachment.file_type
     )
-
 
 
 
@@ -1254,7 +1266,7 @@ def send_group_message(group_id):
 @app.route('/leave_group', methods=['POST'])
 @login_required
 def leave_group():
-    group_id = request.form.get('group_id')
+    group_id = request.json.get('group_id')
     if not group_id:
         return jsonify({'status': 'error', 'message': 'Group ID is required'}), 400
 
@@ -1378,7 +1390,9 @@ def delete_group_message():
     message_id = request.form.get('message_id')
     message = GroupMessage.query.get_or_404(message_id)
 
-    if message.user_id != current_user.id and current_user.id != message.group.group_creator:
+    # Check if the user is the message creator, group creator, or a group admin
+    is_admin = GroupUser.query.filter_by(group_id=message.group_id, user_id=current_user.id, admin=True).first() is not None
+    if message.user_id != current_user.id and current_user.id != message.group.group_creator and not is_admin:
         return jsonify({'status': 'error', 'message': 'Unauthorized'}), 403
 
     for attachment in message.attachments:
@@ -1457,22 +1471,110 @@ def edit_group_message(message_id):
 @login_required
 def download_group_file(attachment_id):
     attachment = GroupMessageAttachment.query.get_or_404(attachment_id)
-    if current_user not in attachment.message.group.users:
-        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 403
 
     uploads_dir = os.path.join(app.root_path, 'static', 'uploads')
     file_path = os.path.join(uploads_dir, attachment.file_name)
 
     return send_file(
-        file_path, 
+        file_path,
         as_attachment=True,
         download_name=attachment.original_filename,
         mimetype=attachment.file_type
     )
 
 
+@app.route('/update_group_description', methods=['POST'])
+@login_required
+def update_group_description():
+    data = request.json
+    group_id = data.get('group_id')
+    new_description = data.get('description')
+
+    group = Group.query.get(group_id)
+    if not group or current_user.id != group.group_creator:
+        return jsonify({'status': 'error', 'message': 'Unauthorized or group not found'})
+
+    group.description = new_description
+    db.session.commit()
+
+    return jsonify({'status': 'success', 'message': 'Description updated successfully'})
 
 
+@app.route('/toggle_group_admin/<int:group_id>/<int:user_id>', methods=['POST'])
+@login_required
+def toggle_group_admin(group_id, user_id):
+    group = Group.query.get_or_404(group_id)
+    user = User.query.get_or_404(user_id)
+    
+    if current_user.id != group.group_creator:
+        return jsonify({'status': 'error', 'message': 'Only the group creator can manage admins'}), 403
+    
+    group_user = GroupUser.query.filter_by(group_id=group.id, user_id=user.id).first()
+    
+    if not group_user:
+        return jsonify({'status': 'error', 'message': 'User is not in this group'}), 404
+    
+    group_user.admin = not group_user.admin
+    db.session.commit()
+    
+    return jsonify({
+        'status': 'success',
+        'is_admin': group_user.admin,
+        'message': f"User {'is now' if group_user.admin else 'is no longer'} an admin"
+    })
+
+
+@app.route('/delete_group', methods=['POST'])
+@login_required
+def delete_group():
+    data = request.json
+    group_id = data.get('group_id')
+    
+    group = Group.query.get(group_id)
+    
+    if not group:
+        return jsonify({"status": "error", "message": "Group not found"}), 404
+    
+    if current_user.id != group.group_creator:
+        return jsonify({"status": "error", "message": "You don't have permission to delete this group"}), 403
+    
+    try:
+        # Delete all messages in the group
+        GroupMessage.query.filter_by(group_id=group.id).delete()
+        
+        # Remove all users from the group
+        GroupUser.query.filter_by(group_id=group.id).delete()
+        
+        # Delete the group
+        db.session.delete(group)
+        db.session.commit()
+        
+        return jsonify({"status": "success", "message": "Group deleted successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/get_group_info/<int:group_id>')
+@login_required
+def get_group_info(group_id):
+    group = Group.query.get_or_404(group_id)
+    if current_user not in group.users:
+        return jsonify({'status': 'error', 'message': 'You are not a member of this group'}), 403
+
+    users_data = [{
+        'id': user.id,
+        'nick': user.nick,
+        'is_admin': user.id in group.admin_ids
+    } for user in group.users]
+
+    return jsonify({
+        'status': 'success',
+        'description': group.description,
+        'users': users_data,
+        'group_creator': group.group_creator,
+        'join_code': group.join_code if current_user.id == group.group_creator else None
+    })
+    
 
 
 
@@ -1500,16 +1602,9 @@ if __name__ == "__main__":
 
 
 # co jak najszybciej #########################################
-#
-# POPRAWIĆ POBIERANIE ZAŁĄCZNIKÓW
-# usuwanie grup przez właściciela grupy
-# dodanie adminów do grup
-# dodanie możliwości usuwania wiadomości w grupach dla adminów
-# dodać opis grupy i jej członków
 # poprawnie wyświetlanie we wiadomosciach prywatnych i grupach avatarów i odnośników do ich profilów
-# właściciel grupy może usuwać i dodawać adminów w grupie
-# dodanie przycisku dla twurcy i adminów grupy kod dostępu
 # formatowanie tekstu w postach wiadomościach komentarzach i opisach
+# wysyłanie wiadomości jakimś skrutem może być enter a shift enter to nowa linijka
 # dodać system przyjmowania znajomych
 # dodać system ignorowania osób
 ################################################################
@@ -1523,7 +1618,7 @@ if __name__ == "__main__":
 # naprawić nie ma opcji edycji usuwania postów dodawani komentarzy itd w profilu w stronie postu 
 # naprawić brak wyświetlania poprawnej liczby komentarzy kiedy się ich nie odsłoni bo zawsze jest 0 na początku
 # naprawić to żeby admin nie widział przycisku do edycji 
-# dodać powiadomienia
+# dodać powiadomienia (nowa baza danych pod urzytkownik gdzie jest ostatni raz kiedy urzytkownik był na kanale) trzeba zrobić fetch co 1s żeby sprawdzał czy gdzieś nie wysłano nowszej wiadomosci
 
 
 
