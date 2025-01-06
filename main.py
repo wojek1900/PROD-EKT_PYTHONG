@@ -66,6 +66,7 @@ class User(db.Model, UserMixin):
     fs_uniquifier = db.Column(db.String(255), unique=True, nullable=False)
     active = db.Column(db.Boolean(), default=True)
     roles = db.relationship('Role', secondary='user_roles', backref=db.backref('users', lazy='dynamic'))
+    zdjecie_version = db.Column(db.Integer, default=1)
 
     friends = db.relationship(
         'User', 
@@ -450,6 +451,7 @@ def change_profile():
             avatar.save(avatar_path)
 
             current_user.zdjecie_wskaznik = unique_filename
+            current_user.zdjecie_version += 1
 
         db.session.commit()
         flash('Profil został zaktualizowany pomyślnie.')
@@ -1335,6 +1337,7 @@ def get_group_messages(group_id):
             'sender_id': msg.user_id,
             'sender_nick': msg.user.nick,
             "sender_zdjecie_wskaznik": msg.user.zdjecie_wskaznik,
+            "sender_zdjecie_version": msg.user.zdjecie_version,
             'message': msg.message,
             'created_at': msg.created_at.isoformat(),
             'reactions': reactions,
@@ -1593,12 +1596,7 @@ def get_group_info(group_id):
         'version': group.zdjecie_version
     })
 
-
-
-from flask import send_file
-
-from flask import send_file
-import os
+   
 
 @app.route('/static/uploads/<path:filename>')
 def serve_upload(filename):
@@ -1688,13 +1686,12 @@ if __name__ == "__main__":
 
 
 ################################################################
+# (bardzo trudne) dodać get_user i get_posts żeby mieć informacje o danym użytkowniku i postach na bierząco żeby się odświerzały
 # (łatwe) poprawnie wyświetlanie we wiadomosciach prywatnych avatarów i odnośników do ich profilów (zrobione już w grupach)
 # (możę być trudne) formatowanie tekstu w postach wiadomościach komentarzach i opisach
 # (raczej łatwe) wysyłanie wiadomości jakimś skrutem może być enter a shift enter to nowa linijka
 # (dość trudne) dodać system przyjmowania znajomych dodać system ignorowania osób(po prostu nie może cie ktoś zaprosić do znajomych i automatycznie się z tamtąd usuwa)
-# (bardzo trudne) dodać get_user i get_posts żeby mieć informacje o danym użytkowniku i postach na bierząco żeby się odświerzały
 # (łatwe) dodać przeciąganie plików na formularz żeby dołączyć
-# (bardzo trudne)powiadomienia o wszystkim
 # (trudne) przeanalizować co można uprościć w projekcie np. jakies skrypty na pewno się powtarzają w jakiejś części
 # (raczej łatwe w zależności jak zrobimy)dodać AI po tokenie lub przez ollama bo po co się wysilać
 # (łatwe) poprawić wzystkie wady np. jak gdzies nie działa jakiś przycisk a powinien to naprawić. czy gdzieś nie ma opcji czegoś a powinna być to dodać. zwiększyć uprawnienia admina błędy jakie zaobserwowałem
@@ -1704,7 +1701,7 @@ if __name__ == "__main__":
 # (do ogarnięcia) naprawić nie ma opcji edycji usuwania postów dodawani komentarzy itd w profilu w stronie postu naprawić trzeba 
 # (do ogarnięcia) naprawić brak wyświetlania poprawnej liczby komentarzy kiedy się ich nie odsłoni bo zawsze jest 0 na początku (już gdzies jest zrobione)
 # (łatwe) naprawić to żeby admin nie widział przycisku do edycji 
-# (bardzo trudne) dodać powiadomienia (nowa baza danych pod urzytkownik gdzie jest ostatni raz kiedy urzytkownik był na kanale) trzeba zrobić fetch co 1s żeby sprawdzał czy gdzieś nie wysłano nowszej wiadomosci
+# (bardzo trudne) dodać powiadomienia o wszystkim (nowa baza danych pod urzytkownik gdzie jest ostatni raz kiedy urzytkownik był na kanale) trzeba zrobić fetch co 1s żeby sprawdzał czy gdzieś nie wysłano nowszej wiadomosci
 ################################################################
 
 ################################################################

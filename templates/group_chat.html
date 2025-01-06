@@ -23,7 +23,11 @@
     <div>
     <h1>Group Chat: {{ group.name }}</h1>
     <div id="group-image-container">
-        <img class="group-image" src="{{ url_for('static', filename='uploads/' + group.zdjecie_wskaznik) if group.zdjecie_wskaznik else 'basics/group.png' }}" alt="{{ group.name }} image">
+        {% if group.zdjecie_wskaznik == "basics/group.png" %}
+        <img class="group-image" src="{{ url_for('static', filename='basics/group.png') }}">
+        {% else %}
+        <img class="group-image" src="{{ url_for('static', filename='uploads/' + group.zdjecie_wskaznik) }}" alt="{{ group.name }} image">
+        {% endif %}
         {% if current_user.id == group.group_creator %}
             <form action="{{ url_for('update_group_image', group_id=group.id) }}" method="POST" enctype="multipart/form-data">
                 <input type="file" name="group_image" accept="image/*">
@@ -103,7 +107,7 @@
             });
             </script>
 
-            <h2>Users:</h2>
+            <h2>Users (żeby admin działał odświerz strone):</h2>
             <div id="user-list">
                 
                 {% for user in group.users %}
@@ -127,7 +131,7 @@
                     if (data.status === 'success') {
                         $('#group-description').text(data.description);
                         const groupImage = $('.group-image');
-                        if (data.zdjecie_wskaznik) {
+                        if (data.zdjecie_wskaznik != "basics/group.png") {
                             console.log(data.zdjecie_wskaznik);
                             console.log(data.version);
                             const imageUrl = `{{ url_for('static', filename='uploads/') }}${data.zdjecie_wskaznik}?v=${data.version}`;
@@ -204,10 +208,8 @@
             });
         }
     
-        // Initial fetch and setup
         fetchGroupInfo();
     
-        // Set up periodic refresh
         setInterval(fetchGroupInfo, 1000); 
     </script>
 
@@ -319,7 +321,7 @@
     <div id="chat-messages">
         {% for message in messages %}
             <div class="message-container {% if message.user_id == current_user.id %}sent{% else %}received{% endif %}">
-                <div class="message-box" data-message-id="{{ message.id }}">
+                <div class="message-box" data-message-id="{{ message.id }}" user-id="{{message.user.id}}" user-nick="{{message.user.nick}}" user-zdjecie-version="{{message.user.zdjecie_version}}">
                     <a href="{{ url_for('user_profile', user_id=message.user.id) }}" class="user-profile-link">
                         <div class="message-header">
                             {% if message.user.zdjecie_wskaznik == "basics/profile.png" %}
@@ -824,7 +826,7 @@
             const isCurrentUser = message.sender_id == {{ current_user.id }};
             let messageHtml = `
             <div class="message-container ${messageClass}">
-                <div class="message-box" data-message-id="${message.id}">
+                <div class="message-box" data-message-id="${message.id}" data-user-id="${message.sender_id}" data-user-nick="${message.sender_nick}" data-user-zdjecie-version="${message.sender_zdjecie_wskaznik}">
                     <div class="message-header">
                         <a href="/user/${message.sender_id}" class="user-profile-link">
                             <img src="${message.sender_zdjecie_wskaznik === 'basics/profile.png' ? 
@@ -938,13 +940,35 @@
                                     $(this).remove();
                                 }
                             });
-            
+                            
                             messages.forEach(message => {
                                 const existingMessage = $(`.message-box[data-message-id="${message.id}"]`);
                                 if (existingMessage.length) {
                                     updateExistingMessage(existingMessage, message);
                                 } else {
                                     displayMessage(message);
+                                }
+
+                               const existingProfileInMessage = $(`.message-box[data-message-id="${message.id}"]`);
+                                const currentNick = existingProfileInMessage.attr('user-nick');
+                                const currentZdjecieVersion = existingProfileInMessage.attr('user-zdjecie-version');
+
+                                const isNickChanged = currentNick !== message.sender_nick;
+                                const isImageChanged = currentZdjecieVersion !== message.sender_zdjecie_version;
+
+                                if (isNickChanged) {
+                                    console.log(`User ${message.sender_id} changed nickname from "${currentNick}" to "${message.sender_nick}"`);
+                                    existingProfileInMessage.attr('user-nick', message.sender_nick);
+                                    existingProfileInMessage.find('.author-name').text(message.sender_nick);
+                                }
+
+                                if (isImageChanged) {
+                                    console.log(`User ${message.sender_id} changed profile picture. New version: ${message.sender_zdjecie_version}`);
+                                    existingProfileInMessage.attr('user-zdjecie-version', message.sender_zdjecie_version);
+                                    const newImageSrc = message.sender_zdjecie_wskaznik === 'basics/profile.png' ? 
+                                        '/static/basics/profile.png' : 
+                                        `/static/uploads/${message.sender_zdjecie_wskaznik}`;
+                                    existingProfileInMessage.find('.profile-picture').attr('src', newImageSrc);
                                 }
                             });                
                             if (messages.length > 0) {
