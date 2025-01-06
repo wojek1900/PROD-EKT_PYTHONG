@@ -1686,31 +1686,32 @@ if __name__ == "__main__":
 
 
 ################################################################
-# (bardzo trudne) dodać get_user i get_posts żeby mieć informacje o danym użytkowniku i postach na bierząco żeby się odświerzały
-# (łatwe) poprawnie wyświetlanie we wiadomosciach prywatnych avatarów i odnośników do ich profilów (zrobione już w grupach)
-# (możę być trudne) formatowanie tekstu w postach wiadomościach komentarzach i opisach
+# (raczej łatwe w zależności jak zrobimy) dodać AI po tokenie lub przez ollama bo po co się wysilać
 # (raczej łatwe) wysyłanie wiadomości jakimś skrutem może być enter a shift enter to nowa linijka
-# (dość trudne) dodać system przyjmowania znajomych dodać system ignorowania osób(po prostu nie może cie ktoś zaprosić do znajomych i automatycznie się z tamtąd usuwa)
 # (łatwe) dodać przeciąganie plików na formularz żeby dołączyć
-# (trudne) przeanalizować co można uprościć w projekcie np. jakies skrypty na pewno się powtarzają w jakiejś części
-# (raczej łatwe w zależności jak zrobimy)dodać AI po tokenie lub przez ollama bo po co się wysilać
-# (łatwe) poprawić wzystkie wady np. jak gdzies nie działa jakiś przycisk a powinien to naprawić. czy gdzieś nie ma opcji czegoś a powinna być to dodać. zwiększyć uprawnienia admina błędy jakie zaobserwowałem
+# (możę być trudne) formatowanie tekstu w postach wiadomościach komentarzach i opisach że np. w kilku linijkach
+# (do ogarnięcia) poprawienie wiadomości prywatnych żeby działały jak te w grupie np. jest avatar użytkownika opis, jest avatar przy wiadomości, updatuje się wszystko na bierząco
+# (dość trudne) dodać system przyjmowania znajomych dodać system ignorowania osób(po prostu nie może cie ktoś zaprosić do znajomych i automatycznie się z tamtąd usuwa)
+# (bardzo trudne) dodać get_user i get_posts get_comments itd żeby mieć informacje o danym użytkowniku i postach na bierząco żeby się odświeżały chodzi o to jak w grupach
 # (raczej łatwe) usuwanie komentarzy z postów
-# (trudne) naprawić robienie postów i dodanie plików a potem ich usuwanie 
-# (łatwe) naprawić przekierowanie na strony czasem działa czasem nei zalezy gdzie się jest wystarczy poprawić odsyłanie na odpowiednie
-# (do ogarnięcia) naprawić nie ma opcji edycji usuwania postów dodawani komentarzy itd w profilu w stronie postu naprawić trzeba 
-# (do ogarnięcia) naprawić brak wyświetlania poprawnej liczby komentarzy kiedy się ich nie odsłoni bo zawsze jest 0 na początku (już gdzies jest zrobione)
-# (łatwe) naprawić to żeby admin nie widział przycisku do edycji 
+# (do ogarnięcia) dodać podsumowanie komentarzy przez ai
+# (umiarokowane) poprawić wzystkie wady np. jak gdzies nie działa jakiś przycisk a powinien to naprawić. czy gdzieś nie ma opcji czegoś a powinna być to dodać. błędy jakie zaobserwowałem :
+# - (trudne) naprawić robienie postów i dodanie plików a potem ich usuwanie 
+# - (łatwe) naprawić przekierowanie na strony czasem działa czasem nei zalezy gdzie się jest wystarczy poprawić odsyłanie na odpowiednie
+# - (do ogarnięcia) naprawić nie ma opcji edycji usuwania postów dodawani komentarzy itd w profilu w stronie postu naprawić trzeba 
+# - (do ogarnięcia) naprawić brak wyświetlania poprawnej liczby komentarzy kiedy się ich nie odsłoni bo zawsze jest 0 na początku (już gdzies jest zrobione)
+# - (łatwe) naprawić to żeby admin nie widział przycisku do edycji 
 # (bardzo trudne) dodać powiadomienia o wszystkim (nowa baza danych pod urzytkownik gdzie jest ostatni raz kiedy urzytkownik był na kanale) trzeba zrobić fetch co 1s żeby sprawdzał czy gdzieś nie wysłano nowszej wiadomosci
+# (trudne) przeanalizować co można uprościć w projekcie np. jakies skrypty na pewno się powtarzają w jakiejś części
 ################################################################
 
 ################################################################
 # (najtrudniejsza część) co trzeba zrobić, aby ładnie wyglądało:
 # - w sumie i tak zmienić cały design
-# - naprawić aby flask działał z fetch
-# - ulepszyć wyglląd main.html
-# - dodać ładne przejście fetch z animacjom po zalogowaniu
-# - urzyć zwykłych przejść fetchowych w innych zakładkach
+# - ulepszyć wygląd main.html
+# - dodać ładne przejście fetch z animacjom po zalogowaniu/rejestracji specjalna animacja testowana w designtesting
+# - urzyć zwykłych przejść fetchowych w innych zakładkach fade out fade in elementów
+# - zrobić oddzielne przejścia fetchowe dla background
 # - przywrócić system particle dodać opcje kliknięcia aby zmienić mouseForce na -10
 ################################################################
 
