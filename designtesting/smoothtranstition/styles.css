@@ -20,6 +20,10 @@ p {
 	animation: fadeInText 2s ease forwards 3s;
 }
 
+.black{
+	background-color: black;
+}
+
 .intro {
     position: absolute;
     top: 0;
