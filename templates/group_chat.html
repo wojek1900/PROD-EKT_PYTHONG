@@ -6,9 +6,6 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/messagesstyles.css') }}">
     <title>Group Chat: {{ group.name }}</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <style>
-        /* Add any additional styles specific to group chat here */
-    </style>
 </head>
 <body>
     <div class="navigation">
@@ -142,7 +139,6 @@
                                 console.log("Updating group image");
                                 groupImage.attr('src', imageUrl);
                             } else {
-                                // Force image refresh by updating the 'src' attribute
                                 groupImage.attr('src', function(index, oldValue) {
                                     return oldValue.split('?')[0] + '?v=' + new Date().getTime();
                                 });
@@ -232,7 +228,6 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.status === 'success') {
-                            // Update button text and admin status
                             this.textContent = data.is_admin ? 'Remove admin' : 'Make admin';
                             const adminStatus = this.nextElementSibling;
                             adminStatus.textContent = data.is_admin ? '(Admin)' : '';
@@ -332,7 +327,7 @@
                             <strong class="author-name">{{ message.user.nick }}</strong>
                         </div>
                     </a>
-                    <span class="message-content">{{ message.message }}</span>
+                    <span class="message-content">{{ message.message|nl2br|safe }}</span>
                     {% if message.attachments %}
                     <div class="attachments">
                         <div style="opacity: 0;">
@@ -410,22 +405,98 @@
             const messageInput = document.getElementById('message-input');
             const fileInput = document.getElementById('file-input');
             const attachmentsPreview = document.getElementById('attachments-preview');
-            const chatMessages = document.getElementById('chat-messages');
-            const editOverlay = document.getElementById('edit-message-overlay');
-            const editForm = document.getElementById('edit-message-form');
-            const editInput = document.getElementById('edit-message-input');
-            const editFileInput = document.getElementById('edit-file-input');
-            const editAttachmentsPreview = document.getElementById('edit-attachments-preview');
-            const saveEditBtn = document.getElementById('save-edit');
-            const cancelEditBtn = document.getElementById('cancel-edit');
+        
+            fileInput.addEventListener('change', function(e) {
+                attachmentsPreview.innerHTML = ''; // Czyścimy poprzedni podgląd
+                for (let file of this.files) {
+                    const attachmentElement = createAttachmentElement({
+                        type: file.type.startsWith('image/') ? 'img' : 
+                              file.type.startsWith('video/') ? 'video' :
+                              file.type.startsWith('audio/') ? 'audio' : 'file',
+                        src: URL.createObjectURL(file),
+                        file: file
+                    });
+                    attachmentsPreview.appendChild(attachmentElement);
+                }
+            });
+        
+            function createAttachmentElement(attachment) {
+                const attachmentDiv = document.createElement('div');
+                attachmentDiv.className = 'attachment-preview';
+                attachmentDiv.style.width = '100px';
+                attachmentDiv.style.height = '100px';
+                attachmentDiv.style.display = 'inline-block';
+                attachmentDiv.style.margin = '5px';
+                attachmentDiv.style.position = 'relative';
+        
+                let contentElement;
+                if (attachment.type === 'img') {
+                    contentElement = document.createElement('img');
+                    contentElement.src = attachment.src;
+                    contentElement.style.width = '100%';
+                    contentElement.style.height = '100%';
+                    contentElement.style.objectFit = 'cover';
+                } else {
+                    contentElement = document.createElement('div');
+                    contentElement.style.fontSize = '40px';
+                    contentElement.style.textAlign = 'center';
+                    contentElement.style.lineHeight = '100px';
+        
+                    if (attachment.type === 'video') {
+                        contentElement.textContent = '🎥';
+                    } else if (attachment.type === 'audio') {
+                        contentElement.textContent = '🎵';
+                    } else {
+                        contentElement.textContent = '📎';
+                    }
+                }
+        
+                attachmentDiv.appendChild(contentElement);
+        
+                const deleteButton = document.createElement('button');
+                deleteButton.textContent = 'X';
+                deleteButton.style.position = 'absolute';
+                deleteButton.style.top = '0';
+                deleteButton.style.right = '0';
+                deleteButton.style.background = 'red';
+                deleteButton.style.color = 'white';
+                deleteButton.style.border = 'none';
+                deleteButton.style.cursor = 'pointer';
+                deleteButton.onclick = (e) => {
+                    e.preventDefault();
+                    const dt = new DataTransfer();
+                    const files = fileInput.files;
+                    for (let i = 0; i < files.length; i++) {
+                        if (files[i] !== attachment.file) {
+                            dt.items.add(files[i]);
+                        }
+                    }
+                    fileInput.files = dt.files;
+                    attachmentDiv.remove();
+                };
+                attachmentDiv.appendChild(deleteButton);
+        
+                return attachmentDiv;
+            }
 
             let currentEditMessageId = null;
 
             messageForm.addEventListener('submit', function(e) {
                 e.preventDefault();
+                sendMessage();
+            });
 
+            messageInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            function sendMessage() {
                 const formData = new FormData();
-                formData.append('message', messageInput.value);
+                formData.append('message', messageInput.value.replace(/\n/g, '<br>')); 
+                
 
                 for (let file of fileInput.files) {
                     formData.append('files', file);
@@ -435,18 +506,17 @@
                     method: 'POST',
                     body: formData
                 })
-
                 .then(response => response.json())
                 .then(data => {
-                        messageInput.value = '';
-                        fileInput.value = '';
-                        attachmentsPreview.innerHTML = '';
-                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                    messageInput.value = '';
+                    fileInput.value = '';
+                    attachmentsPreview.innerHTML = '';
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
                 })
-            });
-
-
+            }
         });
+
+        
 
     </script>
 
@@ -479,8 +549,9 @@
         
             let currentEditMessageId = null;
             let currentAttachments = [];
-        
-            // Function to show edit form
+            function processMessageContent(content) {
+                return content.replace(/\n/g, '<br>');
+            }
             function showEditForm(messageId, content, attachments) {
                 currentEditMessageId = messageId;
                 editMessageContent.value = content;
@@ -581,10 +652,8 @@
                 deleteButton.onclick = (e) => {
                     e.preventDefault();
                     if (attachment.id) {
-                        // Jeśli to istniejący załącznik, oznacz go do usunięcia
                         attachment.toDelete = true;
                     } else {
-                        // Jeśli to nowy załącznik, usuń go z listy plików
                         const dt = new DataTransfer();
                         const files = editMessageFiles.files;
                         for (let i = 0; i < files.length; i++) {
@@ -602,12 +671,13 @@
 
 
         
-            // Event delegation for edit and delete buttons
             chatMessages.addEventListener('click', function(e) {
                 if (e.target.classList.contains('edit-btn')) {
                     const messageBox = e.target.closest('.message-box');
                     const messageId = messageBox.dataset.messageId;
-                    const content = messageBox.querySelector('.message-content').textContent;
+                    const contentElement = messageBox.querySelector('.message-content');
+                    let content = contentElement.innerHTML;
+                    content = content.replace(/<br\s*\/?>/g, '\n');
                     const attachments = Array.from(messageBox.querySelectorAll('.attachments img, .attachments video, .attachments audio, .attachments p')).map(el => {
                         if (el.tagName.toLowerCase() === 'p') {
                             const link = el.querySelector('a');
@@ -627,74 +697,74 @@
                     showEditForm(messageId, content, attachments);
                 } 
             });
-        
-            // Save edit button
-        saveMessageEdit.addEventListener('click', function() {
-            const formData = new FormData();
-            formData.append('message', editMessageContent.value);
-            formData.append('message_id', currentEditMessageId);
-
-            // Append existing attachments that weren't deleted
-            const existingAttachments = existingMessageAttachments.querySelectorAll('.attachment-preview');
-            existingAttachments.forEach(attachment => {
-                const attachmentId = attachment.querySelector('img, video, audio, a').dataset.id;
-                formData.append('existing_attachments[]', attachmentId);
-            });
-
-            // Append new files
-            for (let file of editMessageFiles.files) {
-                formData.append('new_files[]', file);
-            }
-            console.log("Existing attachments:", Array.from(formData.getAll('existing_attachments[]')));
-            console.log("New files:", Array.from(formData.getAll('new_files[]')));
-            fetch(`/edit_group_message/${currentEditMessageId}`, {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.status === "OK") {
-                    const messageBox = document.querySelector(`.message-box[data-message-id="${currentEditMessageId}"]`);
-                    messageBox.querySelector('.message-content').textContent = editMessageContent.value;
-                    
-                    // Aktualizacja załączników
-                    let attachmentsContainer = messageBox.querySelector('.attachments');
-                    
-                    // Sprawdź, czy kontener załączników istnieje
-                    if (!attachmentsContainer) {
-                        // Jeśli nie istnieje, utwórz nowy
-                        attachmentsContainer = document.createElement('div');
-                        attachmentsContainer.className = 'attachments';
-                        messageBox.appendChild(attachmentsContainer);
-                    } else {
-                        // Jeśli istnieje, wyczyść jego zawartość
-                        attachmentsContainer.innerHTML = '';
-                    }
-
-                    // Dodaj nowe załączniki
-                    if (data.attachments && data.attachments.length > 0) {
-                        data.attachments.forEach(attachment => {
-                            const attachmentElement = createAttachmentElement(attachment);
-                            attachmentsContainer.appendChild(attachmentElement);
-                        });
-                    }
             
-                    hideEditForm();
-                    //alert('Wiadomość została zaktualizowana.');
+                        function saveEditedMessage() {
+                const formData = new FormData();
+                const contentForSaving = processMessageContent(editMessageContent.value);
+                formData.append('message', contentForSaving);
+                formData.append('message_id', currentEditMessageId);
+                const editedContent = processMessageContent(editMessageContent.value);
+                const existingAttachments = existingMessageAttachments.querySelectorAll('.attachment-preview');
+                existingAttachments.forEach(attachment => {
+                    const attachmentId = attachment.querySelector('img, video, audio, a').dataset.id;
+                    formData.append('existing_attachments[]', attachmentId);
+                });
+
+                for (let file of editMessageFiles.files) {
+                    formData.append('new_files[]', file);
+                }
+                console.log("Existing attachments:", Array.from(formData.getAll('existing_attachments[]')));
+                console.log("New files:", Array.from(formData.getAll('new_files[]')));
+                
+                fetch(`/edit_group_message/${currentEditMessageId}`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.status === "OK") {
+                        const messageBox = document.querySelector(`.message-box[data-message-id="${currentEditMessageId}"]`);
+                        messageBox.querySelector('.message-content').textContent = editMessageContent.value;
+                        
+                        let attachmentsContainer = messageBox.querySelector('.attachments');
+                        
+                        if (!attachmentsContainer) {
+                            attachmentsContainer = document.createElement('div');
+                            attachmentsContainer.className = 'attachments';
+                            messageBox.appendChild(attachmentsContainer);
+                        } else {
+                            attachmentsContainer.innerHTML = '';
+                        }
+
+                        if (data.attachments && data.attachments.length > 0) {
+                            data.attachments.forEach(attachment => {
+                                const attachmentElement = createAttachmentElement(attachment);
+                                attachmentsContainer.appendChild(attachmentElement);
+                            });
+                        }
+                
+                        hideEditForm();
+                    }
+                });
+            }
+
+            saveMessageEdit.addEventListener('click', saveEditedMessage);
+
+            editMessageContent.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    saveEditedMessage();
                 }
             });
-        });
         
-            // Cancel edit button
             cancelMessageEdit.addEventListener('click', hideEditForm);
         
         
-            // Handle file input change for editing
             editMessageFiles.addEventListener('change', function(e) {
                 editMessageAttachmentsPreview.innerHTML = '';
                 for (let file of e.target.files) {
@@ -728,7 +798,6 @@
 
     <script>
         
-    //troche później edycja wiadomości
         $(document).ready(function() {
             let lastCheck = new Date().toISOString();
 
@@ -819,7 +888,9 @@
                 });
             }
         }
-            
+        function processMessageContent(content) {
+            return content.replace(/&lt;br&gt;/g, '<br>');
+        }
         function displayMessage(message) {
             const messageClass = message.sender_id == {{ current_user.id }} ? 'sent' : 'received';
             const senderNick = message.sender_nick;
@@ -836,7 +907,7 @@
                             <strong class="author-name">${senderNick}</strong>
                         </a>
                     </div>
-                    <span class="message-content">${message.message}</span>
+                    <span class="message-content">${processMessageContent(message.message)}</span>
                     ${!isCurrentUser ? `
                     <div class="reactions">
                         <span class="reaction-btn" data-reaction="👍">👍</span>
@@ -924,7 +995,7 @@
 
 
             
-
+            
             function fetchNewMessages() {
                 const groupId = $('#group-id').val(); 
                 fetch(`/get_group_messages/${groupId}`)
@@ -984,8 +1055,9 @@
 
             
             function updateExistingMessage(existingMessage, updatedMessage) {
-                if (existingMessage.find('.message-content').text() !== updatedMessage.message) {
-                    existingMessage.find('.message-content').text(updatedMessage.message);
+                const processedMessage = processMessageContent(updatedMessage.message);
+                if (existingMessage.find('.message-content').html() !== processedMessage) {
+                    existingMessage.find('.message-content').html(processedMessage);
                 }
                 if (existingMessage.reactions != updatedMessage.reactions) {
                     updateReactionUI(existingMessage, updatedMessage.reactions);
@@ -1022,22 +1094,7 @@
 
 
     
-            $('#message-form').submit(function(e) {
-                e.preventDefault();
-                const formData = new FormData(this);
-                formData.append('group_id', groupId);
-                $.ajax({
-                    url: '/send_group_message',
-                    type: 'POST',
-                    data: formData,
-                    processData: false,
-                    contentType: false,
-                    error: function() {
-                        alert('An error occurred while sending the message.');
-                    }
-                });
-            });
-
+            
     
             $(document).on('click', '.delete-btn', function() {
                 const messageBox = $(this).closest('.message-box');

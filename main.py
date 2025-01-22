@@ -6,6 +6,7 @@ import string
 import json
 from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
+from markupsafe import Markup 
 from flask_login import current_user 
 from flask import Flask, abort, render_template, request, redirect, url_for, flash, jsonify, send_from_directory, send_file
 from flask_security import Security, UserMixin, RoleMixin, SQLAlchemyUserDatastore
@@ -160,17 +161,14 @@ class Group(db.Model):
     
     def update_group_image(self, new_image_filename):
         if new_image_filename:
-            # Delete the old image file if it's not the default
             if self.zdjecie_wskaznik != 'basics/group.png':
                 old_image_path = os.path.join(app.config['UPLOAD_FOLDER'], self.zdjecie_wskaznik)
                 if os.path.exists(old_image_path):
                     os.remove(old_image_path)
             
-            # Update the zdjecie_wskaznik with the new filename
             self.zdjecie_wskaznik = new_image_filename
             db.session.commit()
         else:
-            # If no new image is provided, set to default
             self.zdjecie_wskaznik = 'basics/group.png'
             db.session.commit()
             
@@ -991,7 +989,7 @@ def react_to_message():
     message_id = request.form.get('message_id')
     reaction_type = request.form.get('reaction_type')
 
-    print(f"Received request: message_id={message_id}, reaction_type={reaction_type}")  # Debug log
+    print(f"Received request: message_id={message_id}, reaction_type={reaction_type}") 
 
     if message_id and reaction_type:
         existing_reaction = PrivateMessageReaction.query.filter_by(
@@ -1001,10 +999,10 @@ def react_to_message():
         try:
             if existing_reaction:
                 if existing_reaction.reaction_type == reaction_type:
-                    print(f"Deleting existing reaction: {existing_reaction}")  # Debug log
+                    print(f"Deleting existing reaction: {existing_reaction}") 
                     db.session.delete(existing_reaction)
                 else:
-                    print(f"Updating existing reaction: {existing_reaction} to {reaction_type}")  # Debug log
+                    print(f"Updating existing reaction: {existing_reaction} to {reaction_type}") 
                     existing_reaction.reaction_type = reaction_type
             else:
                 new_reaction = PrivateMessageReaction(
@@ -1012,18 +1010,18 @@ def react_to_message():
                     user_id=current_user.id,
                     reaction_type=reaction_type
                 )
-                print(f"Adding new reaction: {new_reaction}")  # Debug log
+                print(f"Adding new reaction: {new_reaction}") 
                 db.session.add(new_reaction)
 
             db.session.commit()
-            print("Database session committed successfully")  # Debug log
+            print("Database session committed successfully")  
             return jsonify({'status': 'success', 'message': 'Reaction updated'})
         except Exception as e:
             db.session.rollback()
-            print(f"Error occurred: {str(e)}")  # Debug log
+            print(f"Error occurred: {str(e)}") 
             return jsonify({'status': 'error', 'message': f'Database error: {str(e)}'})
 
-    print("Invalid data received")  # Debug log
+    print("Invalid data received")  
     return jsonify({'status': 'error', 'message': 'Invalid data'})
 
 
@@ -1058,8 +1056,7 @@ def edit_private_message(message_id):
         return jsonify({"status": "error", "message": "Unauthorized"}), 403
 
     message.message = request.form['message']
-
-    # Handle existing attachments
+    
     existing_attachment_ids = request.form.getlist('existing_attachments[]')
     print(f"Existing attachments: {existing_attachment_ids}")
     attachments_to_delete = []
@@ -1067,7 +1064,7 @@ def edit_private_message(message_id):
         if str(attachment.id) not in existing_attachment_ids:
             attachments_to_delete.append(attachment)
     print(f"Attachments to delete: {attachments_to_delete}")
-    # Handle new files
+
     new_files = request.files.getlist('new_files[]')
     new_attachments = []
     for file in new_files:
@@ -1085,7 +1082,6 @@ def edit_private_message(message_id):
             )
             new_attachments.append(new_attachment)
 
-    # Update database in a single transaction
     try:
         for attachment in attachments_to_delete:
             db.session.delete(attachment)
@@ -1096,14 +1092,13 @@ def edit_private_message(message_id):
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
 
-    # Prepare response data
     attachments_data = [{
     'id': att.id,
     'type': 'img' if att.file_type.startswith('image/') else
             'video' if att.file_type.startswith('video/') else
             'audio' if att.file_type.startswith('audio/') else 'file',
     'src': url_for('static', filename=f'uploads/{att.file_name}'),
-    'name': att.original_filename  # Dodaj nazwę oryginalnego pliku
+    'name': att.original_filename 
     } for att in message.attachments]
 
     return jsonify({
@@ -1365,7 +1360,7 @@ def react_to_group_message():
     message_id = request.form.get('message_id')
     reaction_type = request.form.get('reaction_type')
 
-    print(f"Received request: message_id={message_id}, reaction_type={reaction_type}")  # Debug log
+    print(f"Received request: message_id={message_id}, reaction_type={reaction_type}") 
 
     if message_id and reaction_type:
         message = GroupMessage.query.get_or_404(message_id)
@@ -1379,10 +1374,10 @@ def react_to_group_message():
         try:
             if existing_reaction:
                 if existing_reaction.reaction_type == reaction_type:
-                    print(f"Deleting existing reaction: {existing_reaction}")  # Debug log
+                    print(f"Deleting existing reaction: {existing_reaction}") 
                     db.session.delete(existing_reaction)
                 else:
-                    print(f"Updating existing reaction: {existing_reaction} to {reaction_type}")  # Debug log
+                    print(f"Updating existing reaction: {existing_reaction} to {reaction_type}")  
                     existing_reaction.reaction_type = reaction_type
             else:
                 new_reaction = GroupReaction(
@@ -1391,18 +1386,18 @@ def react_to_group_message():
                     user_id=current_user.id,
                     reaction_type=reaction_type
                 )
-                print(f"Adding new reaction: {new_reaction}")  # Debug log
+                print(f"Adding new reaction: {new_reaction}") 
                 db.session.add(new_reaction)
 
             db.session.commit()
-            print("Database session committed successfully")  # Debug log
+            print("Database session committed successfully") 
             return jsonify({'status': 'success', 'message': 'Reaction updated'})
         except Exception as e:
             db.session.rollback()
-            print(f"Error occurred: {str(e)}")  # Debug log
+            print(f"Error occurred: {str(e)}") 
             return jsonify({'status': 'error', 'message': f'Database error: {str(e)}'})
 
-    print("Invalid data received")  # Debug log
+    print("Invalid data received") 
     return jsonify({'status': 'error', 'message': 'Invalid data'})
 
 @app.route('/delete_group_message', methods=['POST'])
@@ -1411,7 +1406,6 @@ def delete_group_message():
     message_id = request.form.get('message_id')
     message = GroupMessage.query.get_or_404(message_id)
 
-    # Check if the user is the message creator, group creator, or a group admin
     is_admin = GroupUser.query.filter_by(group_id=message.group_id, user_id=current_user.id, admin=True).first() is not None
     if message.user_id != current_user.id and current_user.id != message.group.group_creator and not is_admin:
         return jsonify({'status': 'error', 'message': 'Unauthorized'}), 403
@@ -1434,7 +1428,6 @@ def edit_group_message(message_id):
 
     message.message = request.form['message']
 
-    # Handle existing attachments
     existing_attachment_ids = request.form.getlist('existing_attachments[]')
     print(f"Existing attachments: {existing_attachment_ids}")
     attachments_to_delete = []
@@ -1443,7 +1436,6 @@ def edit_group_message(message_id):
             attachments_to_delete.append(attachment)
     print(f"Attachments to delete: {attachments_to_delete}")
 
-    # Handle new files
     new_files = request.files.getlist('new_files[]')
     new_attachments = []
     for file in new_files:
@@ -1461,7 +1453,6 @@ def edit_group_message(message_id):
             )
             new_attachments.append(new_attachment)
 
-    # Update database in a single transaction
     try:
         for attachment in attachments_to_delete:
             db.session.delete(attachment)
@@ -1472,7 +1463,6 @@ def edit_group_message(message_id):
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
 
-    # Prepare response data
     attachments_data = [{
         'id': att.id,
         'type': 'img' if att.file_type.startswith('image/') else
@@ -1560,13 +1550,9 @@ def delete_group():
         return jsonify({"status": "error", "message": "You don't have permission to delete this group"}), 403
     
     try:
-        # Delete all messages in the group
         GroupMessage.query.filter_by(group_id=group.id).delete()
-        
-        # Remove all users from the group
         GroupUser.query.filter_by(group_id=group.id).delete()
         
-        # Delete the group
         db.session.delete(group)
         db.session.commit()
         
@@ -1642,7 +1628,6 @@ def update_group_image(group_id):
         new_filename = f"group_{group_id}{file_extension}"
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], new_filename)
         
-        # Delete old image if it exists and is not the default
         if group.zdjecie_wskaznik and group.zdjecie_wskaznik != "basics/default_group.png":
             old_file_path = os.path.join(app.config['UPLOAD_FOLDER'], group.zdjecie_wskaznik)
             if os.path.exists(old_file_path):
@@ -1659,7 +1644,9 @@ def update_group_image(group_id):
     return redirect(url_for('group_chat', group_id=group_id))
     
 
-
+@app.template_filter('nl2br')
+def nl2br_filter(s):
+    return Markup(s.replace('\n', '<br>'))
 
 
 
@@ -1687,21 +1674,16 @@ if __name__ == "__main__":
 
 ################################################################
 # (raczej łatwe w zależności jak zrobimy) dodać AI po tokenie lub przez ollama bo po co się wysilać
-# (raczej łatwe) wysyłanie wiadomości jakimś skrutem może być enter a shift enter to nowa linijka
-# (łatwe) dodać przeciąganie plików na formularz żeby dołączyć
-# (możę być trudne) formatowanie tekstu w postach wiadomościach komentarzach i opisach że np. w kilku linijkach
-# (do ogarnięcia) poprawienie wiadomości prywatnych żeby działały jak te w grupie np. jest avatar użytkownika opis, jest avatar przy wiadomości, updatuje się wszystko na bierząco
-# (dość trudne) dodać system przyjmowania znajomych dodać system ignorowania osób(po prostu nie może cie ktoś zaprosić do znajomych i automatycznie się z tamtąd usuwa)
+# (do ogarnięcia) dodać podsumowanie komentarzy przez ai
+# (trudne) poprawienie wiadomości prywatnych żeby działały jak te w grupie np. jest avatar użytkownika opis, jest avatar przy wiadomości, updatuje się wszystko na bierząco
 # (bardzo trudne) dodać get_user i get_posts get_comments itd żeby mieć informacje o danym użytkowniku i postach na bierząco żeby się odświeżały chodzi o to jak w grupach
 # (raczej łatwe) usuwanie komentarzy z postów
-# (do ogarnięcia) dodać podsumowanie komentarzy przez ai
 # (umiarokowane) poprawić wzystkie wady np. jak gdzies nie działa jakiś przycisk a powinien to naprawić. czy gdzieś nie ma opcji czegoś a powinna być to dodać. błędy jakie zaobserwowałem :
 # - (trudne) naprawić robienie postów i dodanie plików a potem ich usuwanie 
 # - (łatwe) naprawić przekierowanie na strony czasem działa czasem nei zalezy gdzie się jest wystarczy poprawić odsyłanie na odpowiednie
 # - (do ogarnięcia) naprawić nie ma opcji edycji usuwania postów dodawani komentarzy itd w profilu w stronie postu naprawić trzeba 
 # - (do ogarnięcia) naprawić brak wyświetlania poprawnej liczby komentarzy kiedy się ich nie odsłoni bo zawsze jest 0 na początku (już gdzies jest zrobione)
 # - (łatwe) naprawić to żeby admin nie widział przycisku do edycji 
-# (bardzo trudne) dodać powiadomienia o wszystkim (nowa baza danych pod urzytkownik gdzie jest ostatni raz kiedy urzytkownik był na kanale) trzeba zrobić fetch co 1s żeby sprawdzał czy gdzieś nie wysłano nowszej wiadomosci
 # (trudne) przeanalizować co można uprościć w projekcie np. jakies skrypty na pewno się powtarzają w jakiejś części
 ################################################################
 

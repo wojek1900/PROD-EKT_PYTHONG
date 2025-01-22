@@ -16,6 +16,15 @@
     max-width: 70%;
     padding: 10px;
     border-radius: 10px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+.message-content {
+    white-space: pre-wrap;
+}
+.word-wrap {
+    white-space: pre-wrap; 
+    word-break: break-word; 
 }
 .sent .message-box {
     background-color: #dcf8c6;
