@@ -129,8 +129,8 @@
                         $('#group-description').text(data.description);
                         const groupImage = $('.group-image');
                         if (data.zdjecie_wskaznik != "basics/group.png") {
-                            console.log(data.zdjecie_wskaznik);
-                            console.log(data.version);
+                            //console.log(data.zdjecie_wskaznik);
+                            //console.log(data.version);
                             const imageUrl = `{{ url_for('static', filename='uploads/') }}${data.zdjecie_wskaznik}?v=${data.version}`;
                             const currentSrc = groupImage.attr('src').split('?')[0];
                             const newSrc = imageUrl.split('?')[0];
@@ -377,7 +377,10 @@
                             <div id="editMessageForm" style="display: none;">
                                 <textarea id="editMessageContent"></textarea>
                                 <div id="existingMessageAttachments"></div>
-                                <input type="file" id="editMessageFiles" multiple>
+                                <div id="edit-drop-zone" class="drop-zone">
+                                    <p>Przeciągnij i upuść pliki tutaj lub kliknij, aby wybrać</p>
+                                    <input type="file" id="editMessageFiles" multiple style="display: none;">
+                                </div>
                                 <div id="editMessageAttachmentsPreview"></div>
                                 <button id="saveMessageEdit">Save</button>
                                 <button id="cancelMessageEdit">Cancel</button>
@@ -393,7 +396,10 @@
         <form id="message-form">
             <input type="hidden" id="group-id" value="{{ group.id }}">
             <textarea id="message-input" name="message" rows="3" required></textarea>
-            <input type="file" id="file-input" name="files" multiple>
+            <div id="drop-zone" class="drop-zone">
+                <p>Przeciągnij i upuść pliki tutaj lub kliknij, aby wybrać</p>
+                <input type="file" id="file-input" name="files" multiple>
+            </div>
             <div id="attachments-preview"></div>
             <button type="submit">Send</button>
         </form>
@@ -405,20 +411,91 @@
             const messageInput = document.getElementById('message-input');
             const fileInput = document.getElementById('file-input');
             const attachmentsPreview = document.getElementById('attachments-preview');
-        
-            fileInput.addEventListener('change', function(e) {
-                attachmentsPreview.innerHTML = ''; // Czyścimy poprzedni podgląd
-                for (let file of this.files) {
-                    const attachmentElement = createAttachmentElement({
-                        type: file.type.startsWith('image/') ? 'img' : 
-                              file.type.startsWith('video/') ? 'video' :
-                              file.type.startsWith('audio/') ? 'audio' : 'file',
-                        src: URL.createObjectURL(file),
-                        file: file
-                    });
-                    attachmentsPreview.appendChild(attachmentElement);
-                }
+            const dropZone = document.getElementById('drop-zone');
+
+            dropZone.addEventListener('click', function(e) {
+                    fileInput.click();
             });
+    
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, preventDefaults, false);
+                document.body.addEventListener(eventName, preventDefaults, false);
+            });
+    
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, highlight, false);
+            });
+    
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, unhighlight, false);
+            });
+    
+            dropZone.addEventListener('drop', handleDrop, false);
+
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+    
+            function highlight(e) {
+                dropZone.classList.add('highlight');
+            }
+    
+            function unhighlight(e) {
+                dropZone.classList.remove('highlight');
+            }
+    
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                handleFiles(files);
+            }
+    
+            function handleFiles(newFiles) {
+                const dt = new DataTransfer();
+                
+                for (let file of fileInput.files) {
+                    dt.items.add(file);
+                }
+                
+                for (let file of newFiles) {
+                    dt.items.add(file);
+                }
+                
+                fileInput.files = dt.files;
+                updateAttachmentPreviews();
+            }
+    
+            fileInput.addEventListener('change', function(e) {
+                updateAttachmentPreviews();
+            });
+    
+            function updateAttachmentPreviews() {
+                const currentFiles = Array.from(fileInput.files);
+                const currentPreviews = Array.from(attachmentsPreview.children);
+                
+                currentPreviews.forEach(preview => {
+                    const fileName = preview.dataset.fileName;
+                    if (!currentFiles.some(file => file.name === fileName)) {
+                        preview.remove();
+                    }
+                });
+                
+                for (let file of currentFiles) {
+                    if (!currentPreviews.some(preview => preview.dataset.fileName === file.name)) {
+                        const attachmentElement = createAttachmentElement({
+                            type: file.type.startsWith('image/') ? 'img' : 
+                                  file.type.startsWith('video/') ? 'video' :
+                                  file.type.startsWith('audio/') ? 'audio' : 'file',
+                            src: URL.createObjectURL(file),
+                            file: file
+                        });
+                        attachmentElement.dataset.fileName = file.name;
+                        attachmentsPreview.appendChild(attachmentElement);
+                    }
+                }
+            }
         
             function createAttachmentElement(attachment) {
                 const attachmentDiv = document.createElement('div');
@@ -428,6 +505,7 @@
                 attachmentDiv.style.display = 'inline-block';
                 attachmentDiv.style.margin = '5px';
                 attachmentDiv.style.position = 'relative';
+                attachmentDiv.dataset.fileName = attachment.file.name;
         
                 let contentElement;
                 if (attachment.type === 'img') {
@@ -515,9 +593,6 @@
                 })
             }
         });
-
-        
-
     </script>
 
 
@@ -528,7 +603,7 @@
 
 
 
-
+   
 
 
 
@@ -542,43 +617,116 @@
             const editMessageForm = document.getElementById('editMessageForm');
             const editMessageContent = document.getElementById('editMessageContent');
             const existingMessageAttachments = document.getElementById('existingMessageAttachments');
+            const editDropZone = document.getElementById('edit-drop-zone');
             const editMessageFiles = document.getElementById('editMessageFiles');
             const editMessageAttachmentsPreview = document.getElementById('editMessageAttachmentsPreview');
             const saveMessageEdit = document.getElementById('saveMessageEdit');
             const cancelMessageEdit = document.getElementById('cancelMessageEdit');
         
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        
+            function highlight(e) {
+                editDropZone.classList.add('highlight');
+            }
+        
+            function unhighlight(e) {
+                editDropZone.classList.remove('highlight');
+            }
+        
+            function handleEditDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                handleEditFiles(files);
+            }
+        
+            function handleEditFiles(files) {
+                [...files].forEach(file => {
+                    if ([...editMessageFiles.files].every(f => f.name !== file.name)) {
+                        const dataTransfer = new DataTransfer();
+                        [...editMessageFiles.files].forEach(f => dataTransfer.items.add(f));
+                        dataTransfer.items.add(file);
+                        editMessageFiles.files = dataTransfer.files;
+                        const attachment = {
+                            type: file.type.startsWith('image/') ? 'img' : 
+                                  file.type.startsWith('video/') ? 'video' :
+                                  file.type.startsWith('audio/') ? 'audio' : 'file',
+                            src: URL.createObjectURL(file),
+                            file: file
+                        };
+                        const attachmentElement = createAttachmentElement(attachment);
+                        editMessageAttachmentsPreview.appendChild(attachmentElement);
+                    }
+                });
+            }
+            function uploadEditFile(file) {
+                handleEditFiles([file]);
+            }
+        
+            editDropZone.addEventListener('click', function(e) {
+                    editMessageFiles.click();
+            });
+        
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                editDropZone.addEventListener(eventName, preventDefaults, false);
+            });
+        
+            ['dragenter', 'dragover'].forEach(eventName => {
+                editDropZone.addEventListener(eventName, highlight, false);
+            });
+        
+            ['dragleave', 'drop'].forEach(eventName => {
+                editDropZone.addEventListener(eventName, unhighlight, false);
+            });
+        
+            editDropZone.addEventListener('drop', handleEditDrop, false);
+        
+            editMessageFiles.addEventListener('change', function(e) {
+                handleEditFiles(this.files);
+            });
+        
+
             let currentEditMessageId = null;
             let currentAttachments = [];
             function processMessageContent(content) {
                 return content.replace(/\n/g, '<br>');
             }
             function showEditForm(messageId, content, attachments) {
+                console.log("1");
                 currentEditMessageId = messageId;
                 editMessageContent.value = content;
                 existingMessageAttachments.innerHTML = '';
                 editMessageAttachmentsPreview.innerHTML = '';
-
+                console.log("2");
                 attachments.forEach(attachment => {
                     const attachmentElement = createAttachmentElement(attachment);
                     existingMessageAttachments.appendChild(attachmentElement);
                 });
-
-
+                console.log("3");
                 const messageBox = document.querySelector(`.message-box[data-message-id="${messageId}"]`);
-                const rect = messageBox.getBoundingClientRect();
-                overlaymessages.style.display = 'block';
-                editMessageForm.style.display = 'block';
-                editMessageForm.style.position = 'fixed';
-                editMessageForm.style.top = `${rect.top}px`;
-                editMessageForm.style.left = `${rect.left}px`;
-                editMessageForm.style.maxWidth = `${rect.width}px`;
-                editMessageForm.style.zIndex = '1000';
-                overlaymessages.style.position = 'fixed';
-                overlaymessages.style.top = '0';
-                overlaymessages.style.left = '0';
-                overlaymessages.style.width = '100%';
-                overlaymessages.style.height = '100%';
-                overlaymessages.style.zIndex = '999';
+                if (messageBox) {
+                    console.log("4");
+                    const rect = messageBox.getBoundingClientRect();
+                    console.log("5");
+                    overlaymessages.style.display = 'block';
+                    editMessageForm.style.display = 'block';
+                    editMessageForm.style.position = 'fixed';
+                    editMessageForm.style.top = `${rect.top}px`;
+                    editMessageForm.style.left = `${rect.left}px`;
+                    editMessageForm.style.maxWidth = `${rect.width}px`;
+                    editMessageForm.style.zIndex = '1000';
+                    overlaymessages.style.position = 'fixed';
+                    overlaymessages.style.top = '0';
+                    overlaymessages.style.left = '0';
+                    overlaymessages.style.width = '100%';
+                    overlaymessages.style.height = '100%';
+                    overlaymessages.style.zIndex = '999';
+                    console.log("6");
+                } else {
+                    console.error(`Message box with id ${messageId} not found`);
+                }
             }
 
             function hideEditForm() {
@@ -671,32 +819,22 @@
 
 
         
-            chatMessages.addEventListener('click', function(e) {
+            function handleEditButtonClick(e) {
                 if (e.target.classList.contains('edit-btn')) {
                     const messageBox = e.target.closest('.message-box');
                     const messageId = messageBox.dataset.messageId;
-                    const contentElement = messageBox.querySelector('.message-content');
-                    let content = contentElement.innerHTML;
-                    content = content.replace(/<br\s*\/?>/g, '\n');
-                    const attachments = Array.from(messageBox.querySelectorAll('.attachments img, .attachments video, .attachments audio, .attachments p')).map(el => {
-                        if (el.tagName.toLowerCase() === 'p') {
-                            const link = el.querySelector('a');
-                            return {
-                                id: el.dataset.id,
-                                type: 'file', 
-                                src: link ? link.href : ''
-                            };
-                        } else {
-                            return {
-                                id: el.dataset.id,
-                                type: el.tagName.toLowerCase(),
-                                src: el.src || el.href
-                            };
-                        }
-                    });
+                    const content = messageBox.querySelector('.message-content').textContent;
+                    const attachments = Array.from(messageBox.querySelectorAll('.attachment')).map(attachment => ({
+                        id: attachment.dataset.id,
+                        type: attachment.dataset.type,
+                        src: attachment.src || attachment.href
+                    }));
                     showEditForm(messageId, content, attachments);
-                } 
-            });
+                }
+            }
+
+            chatMessages.addEventListener('click', handleEditButtonClick);
+        
             
                         function saveEditedMessage() {
                 const formData = new FormData();
@@ -797,6 +935,7 @@
 
 
     <script>
+        
         
         $(document).ready(function() {
             let lastCheck = new Date().toISOString();
@@ -923,22 +1062,25 @@
             </div>
         `;
             
-            const $messageElement = $(messageHtml);
-            $('#chat-messages').append($messageElement);
-            if (isCurrentUser) {
-                const actionsHtml = `
-                    <div class="message-actions">
-                        <button class="edit-btn">Edit</button>
-                        <button class="delete-btn">Delete</button>
-                    </div>
-                    <form class="edit-form" style="display: none;">
-                        <textarea name="new_content">${message.message}</textarea>
-                        <button type="submit">Save</button>
-                        <button type="button" class="cancel-edit">Cancel</button>
-                    </form>
-                `;
+        const $messageElement = $(messageHtml);
+        $('#chat-messages').append($messageElement);
+        if (isCurrentUser) {
+            const actionsHtml = `
+                <div class="message-actions">
+                    <button class="edit-btn">Edit</button>
+                    <button class="delete-btn">Delete</button>
+                </div>
+                <form class="edit-form" style="display: none;">
+                    <textarea name="new_content">${message.message}</textarea>
+                    <button type="submit">Save</button>
+                    <button type="button" class="cancel-edit">Cancel</button>
+                </form>
+            `;
+    
                 
                 $messageElement.find('.message-box').append(actionsHtml);
+                
+                
             } else if ({{ current_user.id }} == {{ group.group_creator }} || {{ group.admin_ids|tojson }}.includes({{ current_user.id }})) {
                 const actionsHtml = `
                     <div class="message-actions">
@@ -956,42 +1098,42 @@
                 
                 
 
-            function updateAttachments(messageBox, attachments) {
-                let attachmentsContainer = messageBox.find('.attachments');
-                if (attachmentsContainer.length === 0) {
-                    attachmentsContainer = $('<div class="attachments"></div>');
-                    messageBox.append(attachmentsContainer);
-                }
-                attachmentsContainer.empty();
-                if (attachments && attachments.length > 0) {
-                    attachments.forEach(attachment => {
-                        let attachmentHtml = '';
-                        const attachmentId = attachment.id || '';
-                        if (attachment.file_type.startsWith('image/')) {
-                            attachmentHtml = `<img src="/static/uploads/${attachment.file_name}" alt="${attachment.original_filename}" data-id="${attachmentId}">`;
-                        } else if (attachment.file_type.startsWith('video/')) {
-                            attachmentHtml = `
-                                <video controls data-id="${attachmentId}">
-                                    <source src="/static/uploads/${attachment.file_name}" type="${attachment.file_type}">
-                                </video>
-                            `;
-                        } else if (attachment.file_type.startsWith('audio/')) {
-                            attachmentHtml = `
-                                <audio controls data-id="${attachmentId}">
-                                    <source src="/static/uploads/${attachment.file_name}" type="${attachment.file_type}">
-                                </audio>
-                            `;
-                        } else {
-                            attachmentHtml = `
-                                <p data-id="${attachmentId}">
-                                    <a href="/download_group_file/${attachmentId}">Pobierz ${attachment.original_filename}</a>
-                                </p>
-                            `;
-                        }
-                        attachmentsContainer.append(attachmentHtml);
-                    });
-                }
+        function updateAttachments(messageBox, attachments) {
+            let attachmentsContainer = messageBox.find('.attachments');
+            if (attachmentsContainer.length === 0) {
+                attachmentsContainer = $('<div class="attachments"></div>');
+                messageBox.append(attachmentsContainer);
             }
+            attachmentsContainer.empty();
+            if (attachments && attachments.length > 0) {
+                attachments.forEach(attachment => {
+                    let attachmentHtml = '';
+                    const attachmentId = attachment.id || '';
+                    if (attachment.file_type.startsWith('image/')) {
+                        attachmentHtml = `<img src="/static/uploads/${attachment.file_name}" alt="${attachment.original_filename}" data-id="${attachmentId}">`;
+                    } else if (attachment.file_type.startsWith('video/')) {
+                        attachmentHtml = `
+                            <video controls data-id="${attachmentId}">
+                                <source src="/static/uploads/${attachment.file_name}" type="${attachment.file_type}">
+                            </video>
+                        `;
+                    } else if (attachment.file_type.startsWith('audio/')) {
+                        attachmentHtml = `
+                            <audio controls data-id="${attachmentId}">
+                                <source src="/static/uploads/${attachment.file_name}" type="${attachment.file_type}">
+                            </audio>
+                        `;
+                    } else {
+                        attachmentHtml = `
+                            <p data-id="${attachmentId}">
+                                <a href="/download_group_file/${attachmentId}">Pobierz ${attachment.original_filename}</a>
+                            </p>
+                        `;
+                    }
+                    attachmentsContainer.append(attachmentHtml);
+                });
+            }
+        }
 
 
             
@@ -1004,7 +1146,7 @@
                         if (data.status === 'success') {
                             const messages = data.messages;
                             const receivedMessageIds = messages.map(message => message.id);
-            
+                            
                             $('.message-container').each(function() {
                                 const messageId = $(this).find('.message-box').data('message-id');
                                 if (!receivedMessageIds.includes(messageId)) {
@@ -1028,13 +1170,13 @@
                                 const isImageChanged = currentZdjecieVersion !== message.sender_zdjecie_version;
 
                                 if (isNickChanged) {
-                                    console.log(`User ${message.sender_id} changed nickname from "${currentNick}" to "${message.sender_nick}"`);
+                                    //console.log(`User ${message.sender_id} changed nickname from "${currentNick}" to "${message.sender_nick}"`);
                                     existingProfileInMessage.attr('user-nick', message.sender_nick);
                                     existingProfileInMessage.find('.author-name').text(message.sender_nick);
                                 }
 
                                 if (isImageChanged) {
-                                    console.log(`User ${message.sender_id} changed profile picture. New version: ${message.sender_zdjecie_version}`);
+                                    //console.log(`User ${message.sender_id} changed profile picture. New version: ${message.sender_zdjecie_version}`);
                                     existingProfileInMessage.attr('user-zdjecie-version', message.sender_zdjecie_version);
                                     const newImageSrc = message.sender_zdjecie_wskaznik === 'basics/profile.png' ? 
                                         '/static/basics/profile.png' : 
@@ -1050,7 +1192,7 @@
                         }
                     })
                     .catch(error => console.error('Error fetching messages:', error));
-            }
+                }
                 
 
             
@@ -1062,29 +1204,31 @@
                 if (existingMessage.reactions != updatedMessage.reactions) {
                     updateReactionUI(existingMessage, updatedMessage.reactions);
                 }
-
+            
                 const existingAttachments = existingMessage.find('.attachments').children().map(function() {
                     return $(this).data('id');
                 }).get();
-
-                const updatedAttachmentIds = updatedMessage.attachments.map(attachment => attachment.id || '');
-
+            
+                const updatedAttachmentIds = updatedMessage.attachments.map(attachment => attachment.id ? attachment.id.toString() : '');
+            
                 //console.log("Existing attachment IDs:", existingAttachments);
                 //console.log("Updated attachment IDs:", updatedAttachmentIds);
-
+            
                 let attachmentsChanged = false;
-
+            
                 if (existingAttachments.length !== updatedAttachmentIds.length) {
                     attachmentsChanged = true;
                 } else {
                     attachmentsChanged = !existingAttachments.every((id, index) => {
-                        return id === updatedAttachmentIds[index] || 
-                               (id.startsWith('temp_id_') && updatedAttachmentIds[index] === '');
+                        const existingId = id ? id.toString() : '';
+                        const updatedId = updatedAttachmentIds[index] ? updatedAttachmentIds[index].toString() : '';
+                        return existingId === updatedId || 
+                               (existingId.startsWith && existingId.startsWith('temp_id_') && updatedId === '');
                     });
                 }
-
+            
                 if (attachmentsChanged) {
-                    console.log("Attachments have changed.");
+                    //console.log("Attachments have changed.");
                     updateAttachments(existingMessage, updatedMessage.attachments);
                 } else {
                     //console.log("Attachments have not changed");
@@ -1094,34 +1238,35 @@
 
 
     
-            
-    
             $(document).on('click', '.delete-btn', function() {
                 const messageBox = $(this).closest('.message-box');
                 const messageId = messageBox.data('message-id');
                 if (confirm('Are you sure you want to delete this message?')) {
-                    $.ajax({
-                        url: '/delete_group_message',
-                        method: 'POST',
-                        data: { message_id: messageId },
-                        success: function(response) {
-                            if (response.status === 'success') {
-                                messageBox.closest('.message-container').fadeOut(200, function() {
-                                    $(this).remove();
-                                });
-                            } else {
-                                alert('Failed to delete message: ' + response.message);
-                            }
-                        },
-                        error: function() {
-                            alert('An error occurred while trying to delete the message.');
-                        }
-                    });
+                    deleteMessage(messageId);
                 }
             });
+    
+            function deleteMessage(messageId) {
+                $.ajax({
+                    url: '/delete_group_message',
+                    method: 'POST',
+                    data: { message_id: messageId },
+                    success: function(response) {
+                        if (response.status === 'success') {
+                            $(`.message-box[data-message-id="${messageId}"]`).closest('.message-container').remove();
+                            fetchNewMessages();
+                        } else {
+                            console.error('Error deleting message:', response.message);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error deleting message:', error);
+                    }
+                });
+            }
 
     
-            setInterval(fetchNewMessages, 50);
+            setInterval(fetchNewMessages, 80);
         
     </script>
 </body>

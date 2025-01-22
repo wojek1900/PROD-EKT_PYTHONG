@@ -46,6 +46,25 @@
     background-color: #f0f0f0;
 }
 
+.drop-zone {
+    border: 2px dashed #ccc;
+    border-radius: 20px;
+    width: 100%;
+    padding: 20px;
+    text-align: center;
+    margin: 10px 0;
+    cursor: pointer;
+}
+
+.drop-zone.highlight {
+    border-color: purple;
+    background-color: rgba(128, 0, 128, 0.1);
+}
+
+#file-input {
+    display: none;
+}
+
 .message-actions {
     margin-top: 5px;
 }
