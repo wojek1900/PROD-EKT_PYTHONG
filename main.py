@@ -1680,7 +1680,6 @@ if __name__ == "__main__":
 # (raczej łatwe) usuwanie komentarzy z postów
 # (umiarokowane) poprawić wzystkie wady np. jak gdzies nie działa jakiś przycisk a powinien to naprawić. czy gdzieś nie ma opcji czegoś a powinna być to dodać. błędy jakie zaobserwowałem :
 # - (trudne) naprawić robienie postów i dodanie plików a potem ich usuwanie 
-# - (łatwe) naprawić przekierowanie na strony czasem działa czasem nei zalezy gdzie się jest wystarczy poprawić odsyłanie na odpowiednie
 # - (do ogarnięcia) naprawić nie ma opcji edycji usuwania postów dodawani komentarzy itd w profilu w stronie postu naprawić trzeba 
 # - (do ogarnięcia) naprawić brak wyświetlania poprawnej liczby komentarzy kiedy się ich nie odsłoni bo zawsze jest 0 na początku (już gdzies jest zrobione)
 # - (łatwe) naprawić to żeby admin nie widział przycisku do edycji 

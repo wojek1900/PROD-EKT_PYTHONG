@@ -15,11 +15,11 @@
         {% endif %}
     {% endwith %}
     <div class="navigation">
-        <a href="profile.html">profil</a>
-        <a href="main.html">główna</a>
+        <a href="{{ url_for('profile') }}">profil</a>
+        <a href="{{ url_for('main') }}">główna</a>
         <a href="ai.html">AI</a>
-        <a href="search.html">wyszukaj urzytkownika</a>
-        <a href="private.html">prywatne</a>
+        <a href="{{ url_for('search') }}">wyszukaj urzytkownika</a>
+        <a href="{{ url_for('private') }}">prywatne</a>
         <a href="{{ url_for('logout') }}">Wyloguj się</a>
     </div>
     <div>

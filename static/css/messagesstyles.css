@@ -6,6 +6,12 @@
     display: flex;
     margin-bottom: 10px;
 }
+.message-containerinfo{
+    display: flex;
+    margin-left: auto;
+    margin-right: auto;
+    width: 75%;
+}
 .message-container.sent {
     justify-content: flex-end;
 }

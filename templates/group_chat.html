@@ -312,7 +312,19 @@
             }
         });
     </script>
-
+    <div id="overlaymessages" style="display: none;">
+        <div id="editMessageForm" style="display: none;">
+            <textarea id="editMessageContent"></textarea>
+            <div id="existingMessageAttachments"></div>
+            <div id="edit-drop-zone" class="drop-zone">
+                <p>Przeciągnij i upuść pliki tutaj lub kliknij, aby wybrać</p>
+                <input type="file" id="editMessageFiles" multiple style="display: none;">
+            </div>
+            <div id="editMessageAttachmentsPreview"></div>
+            <button id="saveMessageEdit">Save</button>
+            <button id="cancelMessageEdit">Cancel</button>
+        </div>
+    </div>
     <div id="chat-messages">
         {% for message in messages %}
             <div class="message-container {% if message.user_id == current_user.id %}sent{% else %}received{% endif %}">
@@ -623,6 +635,21 @@
             const saveMessageEdit = document.getElementById('saveMessageEdit');
             const cancelMessageEdit = document.getElementById('cancelMessageEdit');
         
+
+            console.log('DOM elements:', {
+                chatMessages,
+                overlaymessages,
+                editMessageForm,
+                editMessageContent,
+                existingMessageAttachments,
+                editDropZone,
+                editMessageFiles,
+                editMessageAttachmentsPreview,
+                saveMessageEdit,
+                cancelMessageEdit
+            });
+
+
             function preventDefaults(e) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -693,41 +720,41 @@
             function processMessageContent(content) {
                 return content.replace(/\n/g, '<br>');
             }
-            function showEditForm(messageId, content, attachments) {
-                console.log("1");
-                currentEditMessageId = messageId;
-                editMessageContent.value = content;
-                existingMessageAttachments.innerHTML = '';
-                editMessageAttachmentsPreview.innerHTML = '';
-                console.log("2");
-                attachments.forEach(attachment => {
-                    const attachmentElement = createAttachmentElement(attachment);
-                    existingMessageAttachments.appendChild(attachmentElement);
-                });
-                console.log("3");
-                const messageBox = document.querySelector(`.message-box[data-message-id="${messageId}"]`);
-                if (messageBox) {
-                    console.log("4");
-                    const rect = messageBox.getBoundingClientRect();
-                    console.log("5");
-                    overlaymessages.style.display = 'block';
-                    editMessageForm.style.display = 'block';
-                    editMessageForm.style.position = 'fixed';
-                    editMessageForm.style.top = `${rect.top}px`;
-                    editMessageForm.style.left = `${rect.left}px`;
-                    editMessageForm.style.maxWidth = `${rect.width}px`;
-                    editMessageForm.style.zIndex = '1000';
-                    overlaymessages.style.position = 'fixed';
-                    overlaymessages.style.top = '0';
-                    overlaymessages.style.left = '0';
-                    overlaymessages.style.width = '100%';
-                    overlaymessages.style.height = '100%';
-                    overlaymessages.style.zIndex = '999';
-                    console.log("6");
-                } else {
-                    console.error(`Message box with id ${messageId} not found`);
-                }
-            }
+             function showEditForm(messageId, content, attachments) {
+        currentEditMessageId = messageId;
+        editMessageContent.value = content;
+        existingMessageAttachments.innerHTML = '';
+        editMessageAttachmentsPreview.innerHTML = '';
+        attachments.forEach(attachment => {
+            const attachmentElement = createAttachmentElement(attachment);
+            existingMessageAttachments.appendChild(attachmentElement);
+        });
+        const messageBox = document.querySelector(`.message-box[data-message-id="${messageId}"]`);
+        console.log('MessageBox:', messageBox);
+        if (messageBox) {
+            const rect = messageBox.getBoundingClientRect();
+            console.log('MessageBox rect:', rect);
+            overlaymessages.style.display = 'block';
+            editMessageForm.style.display = 'block';
+            editMessageForm.style.position = 'fixed';
+            editMessageForm.style.top = `${rect.top}px`;
+            editMessageForm.style.left = `${rect.left}px`;
+            editMessageForm.style.maxWidth = `${rect.width}px`;
+            editMessageForm.style.zIndex = '1000';
+            overlaymessages.style.position = 'fixed';
+            overlaymessages.style.top = '0';
+            overlaymessages.style.left = '0';
+            overlaymessages.style.width = '100%';
+            overlaymessages.style.height = '100%';
+            overlaymessages.style.zIndex = '999';
+            console.log('Styles applied:', {
+                overlaymessages: overlaymessages.style,
+                editMessageForm: editMessageForm.style
+            });
+        } else {
+            console.error(`Message box with id ${messageId} not found`);
+        }
+    }
 
             function hideEditForm() {
                 overlaymessages.style.display = 'none';
@@ -818,25 +845,28 @@
             }
 
 
-        
-            function handleEditButtonClick(e) {
-                if (e.target.classList.contains('edit-btn')) {
+                
+            document.addEventListener('click', function(e) {
+                if (e.target.closest('.edit-btn')) {
                     const messageBox = e.target.closest('.message-box');
                     const messageId = messageBox.dataset.messageId;
-                    const content = messageBox.querySelector('.message-content').textContent;
-                    const attachments = Array.from(messageBox.querySelectorAll('.attachment')).map(attachment => ({
-                        id: attachment.dataset.id,
-                        type: attachment.dataset.type,
-                        src: attachment.src || attachment.href
+                    const contentElement = messageBox.querySelector('.message-content');
+                    const content = contentElement.innerHTML.replace(/<br\s*\/?>/g, '\n').trim();
+                    console.log('Content:', content);
+                    
+                    const attachments = Array.from(messageBox.querySelectorAll('[data-id]')).map(el => ({
+                        id: el.dataset.id,
+                        type: el.tagName.toLowerCase(),
+                        src: el.src || el.href
                     }));
+                    
+                    console.log('Editing message:', { messageId, content, attachments });
                     showEditForm(messageId, content, attachments);
                 }
-            }
-
-            chatMessages.addEventListener('click', handleEditButtonClick);
+            });
         
             
-                        function saveEditedMessage() {
+                function saveEditedMessage() {
                 const formData = new FormData();
                 const contentForSaving = processMessageContent(editMessageContent.value);
                 formData.append('message', contentForSaving);
@@ -936,12 +966,12 @@
 
     <script>
         
-        
+        const chatMessages = document.getElementById('chat-messages');
         $(document).ready(function() {
             let lastCheck = new Date().toISOString();
 
             $(document).on('click', '.message-box', function(e) {
-                if (!$(e.target).closest('.message-actions, .edit-form').length) {
+                if (!$(e.target).closest('.message-actions, .editMessageForm').length) {
                     $(this).find('.reactions').toggle();
                 }
             });
@@ -1067,21 +1097,12 @@
         if (isCurrentUser) {
             const actionsHtml = `
                 <div class="message-actions">
-                    <button class="edit-btn">Edit</button>
-                    <button class="delete-btn">Delete</button>
+                    <button class="edit-btn" data-action="edit-btn" data-message-id="${message.id}">Edit</button>
+                    <button class="delete-btn" data-action="delete" data-message-id="${message.id}">Delete</button>
                 </div>
-                <form class="edit-form" style="display: none;">
-                    <textarea name="new_content">${message.message}</textarea>
-                    <button type="submit">Save</button>
-                    <button type="button" class="cancel-edit">Cancel</button>
-                </form>
             `;
-    
-                
-                $messageElement.find('.message-box').append(actionsHtml);
-                
-                
-            } else if ({{ current_user.id }} == {{ group.group_creator }} || {{ group.admin_ids|tojson }}.includes({{ current_user.id }})) {
+            $messageElement.find('.message-box').append(actionsHtml);
+        }    else if ({{ current_user.id }} == {{ group.group_creator }} || {{ group.admin_ids|tojson }}.includes({{ current_user.id }})) {
                 const actionsHtml = `
                     <div class="message-actions">
                         <button class="delete-btn">Delete</button>
