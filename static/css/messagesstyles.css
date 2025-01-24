@@ -1,3 +1,400 @@
+:root {
+    --background-primary: #36393f;
+    --background-secondary: #2f3136;
+    --background-tertiary: #202225;
+    --text-normal: #dcddde;
+    --text-muted: #72767d;
+    --accent-color: rgb(31, 242, 209);
+    --accent-color-hover: rgb(28, 218, 188);
+    --accent-color-light: rgba(31, 242, 209, 0.2);
+    --accent-color-dark: rgb(25, 194, 167);
+}
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.content-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+.bg {
+    background: var(--background-tertiary);
+    color: var(--text-normal);
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+}
+.content-wrapper {
+    margin-top: 15px;
+    border: 1px solid var(--background-secondary);
+    display: flex;
+    height: calc(100vh - 60px);
+    overflow: hidden;
+}
+
+.main-content {
+    flex: 0 0 75%; 
+    min-width: 20%; 
+    max-width: 85%; 
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    background-color: var(--background-primary);
+}
+.resize-handle {
+    width: 10px;
+    height: 100%;
+    position: absolute;
+    right: 0;
+    top: 0;
+    background-color: #ccc;
+    cursor: col-resize;
+}
+
+.group-info {
+    flex: 1;
+    padding: 20px;
+    border-radius: 15px;
+    background-color: #002c2815;
+    overflow-y: auto;
+}
+.friend-info {
+    flex: 1;
+    padding: 20px;
+    border-radius: 15px;
+    background-color: #002c2815;
+    overflow-y: auto;
+}
+
+.chat-container {
+    flex: 1;
+    overflow: hidden;
+}
+.scrollable-chat {
+    height: 100%;
+    overflow-y: auto;
+    padding: 20px;
+    padding-right: 10px; 
+    margin-right: 10px; 
+}
+.scrollable-chat::-webkit-scrollbar {
+    width: 8px;
+}
+
+.scrollable-chat::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
+
+.scrollable-chat::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+}
+
+.scrollable-chat::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 224, 213, 0.664);
+    box-shadow: rgba(120, 235, 255, 0.7) 0 0 5px;
+}
+
+#chat-form {
+    background-color: var(--background-secondary);
+    padding: 20px;
+    border-radius: 0 0 15px 15px;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+}
+
+#message-form {
+    display: flex;
+    flex-direction: column;
+}
+
+#message-input {
+    background-color: var(--background-primary);
+    color: var(--text-normal);
+    border: 1px solid var(--background-tertiary);
+    border-radius: 5px;
+    padding: 10px;
+    margin-bottom: 10px;
+    resize: vertical;
+}
+
+
+#group-description {
+    white-space: pre-wrap; 
+    word-break: break-word; 
+}
+
+#friend-description {
+    white-space: pre-wrap; 
+    word-break: break-word; 
+}
+
+
+#group-image-container form {
+    margin-top: 10px;
+}
+#friend-image-container{
+    margin-top: 10px;
+}
+
+#user-list {
+    margin-top: 20px;
+}
+
+.make-admin-btn {
+    margin-left: 10px;
+}
+
+.admin-status {
+    margin-left: 5px;
+    font-style: italic;
+}
+.navigation {
+    background-color: var(--background-secondary);
+    padding: 15px 0;
+    position: sticky;
+    z-index: 1000;
+    display: flex;
+    margin-top: 15px;
+    margin-left: auto;
+    margin-right: auto;
+    width: 80%;
+    border-radius: 25px;
+    justify-content: space-around;
+    align-items: center;
+    box-shadow: 0 2px 10px 0 rgba(0,0,0,.2);
+    transition: background-color 0.8s ease, transform 0.8s, box-shadow 0.8s;
+}
+
+.navigation:hover {
+    background-color: rgba(31, 242, 209, 0.1);
+    transform: scale(1.02);
+    box-shadow: var(--accent-color) 0 0 15px 5px;
+}
+
+.navigation a {
+    color: var(--text-normal);
+    text-decoration: none;
+    padding: 8px 15px;
+    border-radius: 15px;
+    transition: background-color 0.3s ease, transform 0.3s, box-shadow 0.5s, color 0.3s;
+}
+
+.navigation a:hover {
+    background-color: var(--accent-color);
+    color: var(--background-tertiary);
+    transform: scale(1.1);
+    box-shadow: var(--accent-color) 0 0 8px 2px;
+}
+
+
+.content-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+h1, h2, h3 {
+    color: #ffffff;
+}
+
+#saveMessageEdit, #cancelMessageEdit, .edit-btn, .delete-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.3s ease, transform 0.2s, box-shadow 0.3s;
+}
+
+#saveMessageEdit {
+    background-color: var(--accent-color);
+    color: var(--background-tertiary);
+}
+
+#saveMessageEdit:hover {
+    background-color: var(--accent-color-hover);
+    transform: scale(1.01);
+    box-shadow: var(--accent-color-hover) 0 0 12px 2px;
+}
+
+#cancelMessageEdit {
+    background-color: #e74c3c;
+    color: white;
+}
+
+#cancelMessageEdit:hover {
+    background-color: #c0392b;
+    transform: scale(1.01);
+    box-shadow: #c0392b 0 0 12px 2px;
+}
+
+.edit-btn {
+    background-color: var(--accent-color-light);
+    color: var(--text-normal);
+}
+
+.edit-btn:hover {
+    background-color: var(--accent-color);
+    color: var(--background-tertiary);
+    transform: scale(1.01);
+    box-shadow: var(--accent-color) 0 0 12px 2px;
+}
+
+.delete-btn {
+    background-color: rgba(231, 76, 60, 0.7);
+    color: white;
+}
+
+.delete-btn:hover {
+    background-color: #e74c3c;
+    transform: scale(1.01);
+    box-shadow: #e74c3c 0 0 12px 2px;
+}
+
+.message-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 5px;
+}
+
+.edit-btn, .delete-btn {
+    font-size: 0.9em;
+    padding: 5px 10px;
+}
+
+.group-description-section {
+    background-color: var(--background-secondary);
+    border-radius: 15px;
+    padding: 20px;
+    margin: 20px 0;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.3s ease;
+}
+
+.group-description-section:hover {
+    box-shadow: 0 5px 15px rgba(31, 242, 209, 0.2);
+}
+
+#group-description {
+    color: var(--text-normal);
+    font-size: 1.1em;
+    line-height: 1.6;
+    margin-bottom: 15px;
+    word-wrap: break-word;
+}
+
+#edit-description-btn {
+    background-color: var(--accent-color-light);
+    color: var(--text-normal);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.3s ease, transform 0.2s, box-shadow 0.3s;
+}
+
+#edit-description-btn:hover {
+    background-color: var(--accent-color);
+    color: var(--background-tertiary);
+    transform: scale(1.01);
+    box-shadow: 0 2px 5px rgba(31, 242, 209, 0.5);
+}
+
+#edit-description-container {
+    margin-top: 15px;
+    background: none; /* lub background-color: transparent; */
+}
+
+#description-input {
+    width: 80%;
+    height: 100px;
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid var(--accent-color-light);
+    background-color: transparent; /* Zmienione na transparent */
+    color: var(--text-normal);
+    font-size: 1em;
+    resize: vertical;
+    margin-bottom: 10px;
+}
+
+/* Dodaj to dla innych elementów, które mają mieć przezroczyste tło */
+.element-bez-tla {
+    background: none;
+}
+
+/* Możesz też dodać klasę dla elementów, które mają mieć przezroczyste tło */
+.transparent-bg {
+    background-color: transparent;
+}
+#save-description-btn, #cancel-description-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.3s ease, transform 0.2s, box-shadow 0.3s;
+    margin-right: 10px;
+}
+
+#save-description-btn {
+    background-color: var(--accent-color);
+    color: var(--background-tertiary);
+}
+
+#save-description-btn:hover {
+    background-color: var(--accent-color-hover);
+    transform: scale(1.01);
+    box-shadow: 0 2px 5px rgba(31, 242, 209, 0.5);
+}
+
+#cancel-description-btn {
+    background-color: #e74c3c;
+    color: white;
+}
+
+#cancel-description-btn:hover {
+    background-color: #c0392b;
+    transform: scale(1.01);
+    box-shadow: 0 2px 5px rgba(231, 76, 60, 0.5);
+}
+.flash-message {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(255, 0, 0, 0.8);
+    color: white;
+    padding: 15px 30px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+    backdrop-filter: blur(5px);
+    z-index: 1000;
+    text-align: center;
+    max-width: 80%;
+}
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+.fade-out {
+    animation: fadeOut 1s ease-out forwards;
+}
 #chat-messages {
     display: flex;
     flex-direction: column;
@@ -33,10 +430,20 @@
     word-break: break-word; 
 }
 .sent .message-box {
-    background-color: #dcf8c6;
+    background-color: rgba(0, 201, 201, 0.514);
+    transition: background-color 0.3s ease, box-shadow 0.5s
+}
+.sent .message-box:hover {
+    background-color: rgba(0, 201, 201, 0.664);
+    box-shadow: rgba(0, 201, 201, 0.9) 0 0 10px 3px;
 }
 .received .message-box {
-    background-color: #f1f0f0;
+    background-color: rgba(160, 59, 255, 0.507);
+    transition: background-color 0.3s ease, box-shadow 0.5s
+}
+.received .message-box:hover {
+    background-color: rgba(160, 59, 255, 0.664);
+    box-shadow: rgba(160, 59, 255, 0.9) 0 0 10px 3px;
 }
 .reactions {
     display: none;
@@ -52,19 +459,137 @@
     background-color: #f0f0f0;
 }
 
-.drop-zone {
-    border: 2px dashed #ccc;
-    border-radius: 20px;
-    width: 100%;
+#drop-zone {
+    border: 2px dashed var(--accent-color);
+    border-radius: 5px;
     padding: 20px;
     text-align: center;
-    margin: 10px 0;
+    margin-bottom: 10px;
     cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+#drop-zone:hover {
+    background-color: rgba(31, 242, 209, 0.1);
+}
+
+#edit-drop-zone {
+    border: 2px dashed var(--accent-color);
+    border-radius: 5px;
+    padding: 20px;
+    text-align: center;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+#edit-drop-zone:hover {
+    background-color: rgba(31, 242, 209, 0.1);
+}
+
+#delete_group, #leave, #edit-description-btn, #chat-form button[type="submit"], .make-admin-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.3s ease, box-shadow 0.3s;
+    color: var(--text-normal);
+    margin: 5px;
+}
+
+#delete_group {
+    background-color: rgba(231, 76, 60, 0.7);
+}
+
+#delete_group:hover {
+    background-color: rgba(231, 76, 60, 0.9);
+    box-shadow: 0 0 10px rgba(231, 76, 60, 0.5);
+}
+
+#leave {
+    background-color: var(--accent-color-light);
+}
+
+#leave:hover {
+    background-color: var(--accent-color);
+    color: var(--background-tertiary);
+    box-shadow: 0 0 10px var(--accent-color-light);
+}
+
+#edit-description-btn {
+    background-color: var(--accent-color-light);
+}
+
+#edit-description-btn:hover {
+    background-color: var(--accent-color);
+    color: var(--background-tertiary);
+    box-shadow: 0 0 10px var(--accent-color-light);
+}
+
+#chat-form button[type="submit"] {
+    background-color: var(--accent-color);
+    color: var(--background-tertiary);
+}
+
+#chat-form button[type="submit"]:hover {
+    background-color: var(--accent-color-hover);
+    box-shadow: 0 0 10px var(--accent-color);
+}
+
+.make-admin-btn {
+    background-color: var(--accent-color-light);
+}
+
+.make-admin-btn:hover {
+    background-color: var(--accent-color);
+    color: var(--background-tertiary);
+    box-shadow: 0 0 10px var(--accent-color-light);
+}
+
+input[type="file"] {
+    padding: 8px;
+    border: 1px solid var(--accent-color-light);
+    border-radius: 5px;
+    background-color: var(--background-secondary);
+    color: var(--text-normal);
+    cursor: pointer;
+    transition: background-color 0.3s ease, box-shadow 0.3s;
+}
+
+input[type="file"]:hover {
+    background-color: var(--accent-color-light);
+    box-shadow: 0 0 10px var(--accent-color-light);
+}
+
+/* Stylizacja przycisku "Choose File" */
+input[type="file"]::-webkit-file-upload-button {
+    visibility: hidden;
+    display: none;
+}
+
+input[type="file"]::before {
+    content: 'Select Image';
+    display: inline-block;
+    background-color: var(--accent-color);
+    color: var(--background-tertiary);
+    border: none;
+    border-radius: 3px;
+    padding: 5px 8px;
+    outline: none;
+    white-space: nowrap;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 10pt;
+}
+
+input[type="file"]:hover::before {
+    background-color: var(--accent-color-hover);
 }
 
 .drop-zone.highlight {
-    border-color: purple;
-    background-color: rgba(128, 0, 128, 0.1);
+    border-color: var(--accent-color-hover);
+    background-color: rgba(67, 181, 130, 0.301);
 }
 
 #file-input {
@@ -90,8 +615,8 @@
 .active-reaction {
     margin-right: 5px;
     padding: 2px 5px;
-    background-color: #f0f0f0;
-    border-radius: 10px;
+    background-color: var(--background-secondary);
+    border-radius: 3px;
     font-size: 0.9em;
 }
 .reaction-btn.user-reacted {
@@ -137,31 +662,27 @@
 
 
 #overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
+    background-color: rgba(0, 0, 0, 0.8);
 }
 
 #editMessageForm {
-    background-color: white;
+    background-color: var(--background-primary);
     padding: 20px;
     border-radius: 5px;
     max-width: 80%;
     max-height: 80%;
     overflow-y: auto;
+    color: var(--text-normal);
 }
 
 #editMessageContent {
     width: 100%;
     min-height: 100px;
     margin-bottom: 10px;
+    background-color: var(--background-secondary);
+    color: var(--text-normal);
+    border: 1px solid var(--background-tertiary);
+    border-radius: 3px;
 }
 
 .attachment-preview {
@@ -187,11 +708,49 @@
     margin-right: 10px;
 }
 
-.group-image{
-    width: 15%;
-    height: 15%;
+.group-image {
+    width: 200px;
+    height: 200px;
     border-radius: 50%;
     object-fit: cover;
-    margin-right: auto;
-    margin-left: auto;
+    margin: 0 auto;
+    display: block;
+}
+.friend-image {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin: 0 auto;
+    display: block;
+}
+
+#group-image-container {
+    text-align: center;
+    margin-bottom: 20px;
+}
+#friend-image-container {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+#group-image-container form {
+    margin-top: 10px;
+}
+
+button[type="submit"] {
+    background-color: var(--accent-color);
+    color: var(--background-tertiary);
+    padding: 8px 16px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.3s ease, box-shadow 0.3s;
+    margin-top: 10px;
+}
+
+button[type="submit"]:hover {
+    background-color: var(--accent-color-hover);
+    box-shadow: 0 0 10px var(--accent-color);
 }

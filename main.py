@@ -488,6 +488,17 @@ def toggle_admin(user_id):
 
 
 
+@app.route('/get_user_info/<int:user_id>', methods=['POST'])
+def get_user_info(user_id):
+    user = User.query.get_or_404(user_id)
+    return jsonify({
+        "nick": user.nick,
+        "mail": user.mail,
+        "opis": user.opis,
+        "zdjecie_wskaznik": user.zdjecie_wskaznik,
+        "zdjecie_version": user.zdjecie_version
+        }), 200
+    
 
 @app.route('/add_user', methods=['POST'])
 def add_user():
@@ -1069,12 +1080,14 @@ def edit_private_message(message_id):
     new_attachments = []
     for file in new_files:
         if file:
-            filename = secure_filename(file.filename)
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            original_filename = secure_filename(file.filename)
+            file_extension = os.path.splitext(original_filename)[1]
+            unique_filename = f"{uuid.uuid4()}{file_extension}"
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
             file.save(file_path)
             new_attachment = PrivateMessageAttachment(
-                file_name=filename,
-                original_filename=file.filename,
+                file_name=original_filename,
+                original_filename=original_filename,
                 file_path=file_path,
                 file_type=file.content_type,
                 message_id=message.id,
@@ -1130,10 +1143,12 @@ def get_new_messages(friend_id):
 
         user_reaction = next((r.reaction_type for r in msg.reactions if r.user_id == current_user.id), None)
         reactions['user_reaction'] = user_reaction
-
         messages_data.append({
             'id': msg.id,
             'sender_id': msg.sender_id,
+            'sender_nick': msg.sender.nick,
+            "sender_zdjecie_wskaznik": msg.sender.zdjecie_wskaznik,
+            "sender_zdjecie_version": msg.sender.zdjecie_version,
             'message': msg.message,
             'created_at': msg.created_at.isoformat(),
             'reactions': reactions,
@@ -1440,12 +1455,14 @@ def edit_group_message(message_id):
     new_attachments = []
     for file in new_files:
         if file:
-            filename = secure_filename(file.filename)
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            original_filename = secure_filename(file.filename)
+            file_extension = os.path.splitext(original_filename)[1]
+            unique_filename = f"{uuid.uuid4()}{file_extension}"
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
             file.save(file_path)
             new_attachment = GroupMessageAttachment(
-                file_name=filename,
-                original_filename=file.filename,
+                file_name=unique_filename,
+                original_filename=original_filename,
                 file_path=file_path,
                 file_type=file.content_type,
                 message_id=message.id,
@@ -1688,11 +1705,7 @@ if __name__ == "__main__":
 
 ################################################################
 # (najtrudniejsza część) co trzeba zrobić, aby ładnie wyglądało:
-# - w sumie i tak zmienić cały design
-# - ulepszyć wygląd main.html
-# - dodać ładne przejście fetch z animacjom po zalogowaniu/rejestracji specjalna animacja testowana w designtesting
-# - urzyć zwykłych przejść fetchowych w innych zakładkach fade out fade in elementów
-# - zrobić oddzielne przejścia fetchowe dla background
+# - ulepszyć wygląd 
 # - przywrócić system particle dodać opcje kliknięcia aby zmienić mouseForce na -10
 ################################################################
 
