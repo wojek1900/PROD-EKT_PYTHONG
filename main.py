@@ -846,6 +846,25 @@ def search():
         return render_template('search.html', users=users, search_performed=True)
     return render_template('search.html')
 
+@app.route('/search_ajax', methods=['GET'])
+@login_required
+def search_ajax():
+    search_query = request.args.get('q', '')
+    if search_query:
+        users = User.query.filter(User.nick.ilike(f'%{search_query}%')).all()
+    else:
+        users = []
+    
+    users_data = [{
+        'id': user.id,
+        'nick': user.nick,
+        'avatar': user.zdjecie_wskaznik if user.zdjecie_wskaznik else 'basics/profile.png'
+    } for user in users]
+    
+    return jsonify(users_data)
+
+
+
 @app.route('/follow/<int:user_id>', methods=['POST'])
 @login_required
 def follow_user(user_id):

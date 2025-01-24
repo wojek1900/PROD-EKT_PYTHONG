@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/private.css') }}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Discover</title>
 </head>
@@ -10,10 +11,26 @@
     {% with messages = get_flashed_messages() %}
         {% if messages %}
             {% for message in messages %}
-                <div class="alert alert-info">{{ message }}</div>
+                <div class="alert alert-info flash-message">{{ message }}</div>
             {% endfor %}
         {% endif %}
     {% endwith %}
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const alerts = document.querySelectorAll('.alert');
+            
+            alerts.forEach(alert => {
+                setTimeout(() => {
+                    alert.classList.add('fade-out');
+                    
+                    alert.addEventListener('animationend', () => {
+                        alert.remove();
+                    });
+                }, 5000);
+            });
+        });
+    </script>
     <div class="navigation">
         <a href="{{ url_for('profile') }}">profil</a>
         <a href="{{ url_for('main') }}">główna</a>
@@ -24,22 +41,40 @@
     </div>
 
     <h2>Your Groups</h2>
-    <ul>
+    <div class="item-list">
         {% for group in groups %}
-        <li>
-            <a href="{{ url_for('group_chat', group_id=group.id) }}">{{ group.name }}</a>
-        </li>
+        <a href="{{ url_for('group_chat', group_id=group.id) }}" class="item-link">
+            <div class="item">
+                <div class="group-image-container">
+                    {% if group.zdjecie_wskaznik == "basics/group.png" %}
+                    <img class="item-image" src="{{ url_for('static', filename='basics/group.png') }}">
+                    {% else %}
+                    <img class="item-image" src="{{ url_for('static', filename='uploads/' + group.zdjecie_wskaznik) }}" alt="{{ group.name }} image">
+                    {% endif %}
+                </div>
+                <span class="item-name">{{ group.name }}</span>
+            </div>
+        </a>
         {% endfor %}
-    </ul>
+    </div>
 
     <h2>Your Friends</h2>
-    <ul>
+    <div class="item-list">
         {% for friend in friends %}
-        <li>
-            <a href="{{ url_for('private_chat', friend_id=friend.id) }}">{{ friend.nick }}</a>
-        </li>
+        <a href="{{ url_for('private_chat', friend_id=friend.id) }}" class="item-link">
+            <div class="item">
+                <div class="user-image-container">
+                    {% if friend.zdjecie_wskaznik == "basics/user.png" %}
+                    <img class="item-image" src="{{ url_for('static', filename='basics/user.png') }}">
+                    {% else %}
+                    <img class="item-image" src="{{ url_for('static', filename='uploads/' + friend.zdjecie_wskaznik) }}" alt="{{ friend.nick }} image">
+                    {% endif %}
+                </div>
+                <span class="item-name">{{ friend.nick }}</span>
+            </div>
+        </a>
         {% endfor %}
-    </ul>
+    </div>
 
     <h3>Create a New Group</h3>
     <form id="create-group-form">

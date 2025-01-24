@@ -1,0 +1,142 @@
+:root {
+    --background-primary: #36393f;
+    --background-secondary: #2f3136;
+    --background-tertiary: #202225;
+    --text-normal: #dcddde;
+    --text-muted: #72767d;
+    --accent-color: rgb(31, 242, 209);
+    --accent-color-hover: rgb(28, 218, 188);
+    --accent-color-light: rgba(31, 242, 209, 0.2);
+    --accent-color-dark: rgb(25, 194, 167);
+}
+
+body {
+    background-color: var(--background-primary);
+    color: var(--text-normal);
+    font-family: Arial, sans-serif;
+}
+
+.navigation {
+    background-color: var(--background-secondary);
+    padding: 15px 0;
+    position: sticky;
+    z-index: 1000;
+    display: flex;
+    margin-top: 15px;
+    margin-left: auto;
+    margin-right: auto;
+    width: 80%;
+    border-radius: 25px;
+    justify-content: space-around;
+    align-items: center;
+    box-shadow: 0 2px 10px 0 rgba(0,0,0,.2);
+    transition: background-color 0.8s ease, transform 0.8s, box-shadow 0.8s;
+}
+
+.navigation:hover {
+    background-color: rgba(31, 242, 209, 0.1);
+    transform: scale(1.02);
+    box-shadow: var(--accent-color) 0 0 15px 5px;
+}
+
+.navigation a {
+    color: var(--text-normal);
+    text-decoration: none;
+    padding: 8px 15px;
+    border-radius: 15px;
+    transition: background-color 0.3s ease, transform 0.3s, box-shadow 0.5s, color 0.3s;
+}
+
+.navigation a:hover {
+    background-color: var(--accent-color);
+    color: var(--background-tertiary);
+    transform: scale(1.1);
+    box-shadow: var(--accent-color) 0 0 8px 2px;
+}
+
+
+h2, h3 {
+    color: var(--accent-color);
+}
+
+ul {
+    list-style-type: none;
+    padding: 0;
+}
+
+.item-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: left; 
+}
+
+.item-link {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+
+.item {
+    display: flex;
+    flex-direction: column;  
+    align-items: center;  
+    padding: 15px;
+    border: 1px solid var(--text-muted);
+    margin-bottom: 10px;
+    transition: all 0.3s ease;  
+    background-color: var(--background-secondary);
+    border-radius: 8px; 
+    width: 120px;  
+    text-align: center;  
+}
+
+.item:hover {
+    background-color:  rgb(0, 159, 165);
+    box-shadow: 0 0 15px 5px var(--accent-color-light);  
+    transform: scale(1.02); 
+}
+
+.item-image {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    margin-bottom: 10px;  
+    border-radius: 50%;  
+}
+
+.item-name {
+    font-weight: bold;
+    color: var(--text-normal);
+}
+
+.item a {
+    color: var(--text-normal);
+    text-decoration: none;
+}
+
+form {
+    margin-top: 20px;
+}
+
+input[type="text"] {
+    background-color: var(--background-tertiary);
+    border: 1px solid var(--text-muted);
+    color: var(--text-normal);
+    padding: 8px;
+    border-radius: 4px;
+}
+
+button {
+    background-color: var(--accent-color);
+    color: var(--background-primary);
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: var(--accent-color-hover);
+}

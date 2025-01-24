@@ -2,51 +2,101 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/search.css') }}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wyszukaj użytkownika</title>
 </head>
 <body>
     <div class="navigation">
-        <a href="{{ url_for('profile') }}">profil</a>
-        <a href="{{ url_for('main') }}">główna</a>
-        <a href="ai.html">AI</a>
-        <a href="{{ url_for('search') }}">wyszukaj użytkownika</a>
-        <a href="{{ url_for('private') }}">prywatne</a>
-        <a href="{{ url_for('logout') }}">Wyloguj się</a>
+        <a href="{{ url_for('profile') }}" class="przycisk_niebieski">profil</a>
+        <a href="{{ url_for('main') }}" class="przycisk_niebieski">główna</a>
+        <a href="ai.html" class="przycisk_niebieski">AI</a>
+        <a href="{{ url_for('search') }}" class="przycisk_niebieski">wyszukaj użytkownika</a>
+        <a href="{{ url_for('private') }}" class="przycisk_niebieski">prywatne</a>
+        <a href="{{ url_for('logout') }}" class="przycisk_niebieski">Wyloguj się</a>
     </div>
 
-    <div id="content">
-        <h1>Wyszukaj użytkownika</h1>
+    <div id="content" class="info wygladzony25 kolor2">
+        <h1 class="tekst-gluwny text_center">Wyszukaj użytkownika</h1>
 
-        <form id="search-form" method="POST" action="{{ url_for('search') }}">
-            <input type="text" name="search_query" placeholder="Wpisz nazwę użytkownika" required>
-            <button type="submit">Szukaj</button>
-        </form>
+        
+        <div class="search-container">
+            <input type="text" id="search-input" placeholder="Wpisz nazwę użytkownika" class="search-input" oninput="performSearch(this.value)">
+        </div>
 
-        <div id="search-results">
+        <div id="search-results" class="results-container">
             {% if users %}
-                <h2>Wyniki wyszukiwania:</h2>
-                <ul>
+                <h2 class="tekst-gluwny results-header">Wyniki wyszukiwania:</h2>
+                <div class="item-list">
                     {% for user in users %}
-                        <li>
-                            <a href="{{ url_for('user_profile', user_id=user.id) }}">
+                        <a href="{{ url_for('user_profile', user_id=user.id) }}" class="item">
+                            <div class="item-content">
                                 {% if user.zdjecie_wskaznik == "basics/profile.png" %}
-                                <img src="{{ url_for('static', filename='basics/profile.png') }}" alt="Default profile picture" class="profile-picture">
+                                <img src="{{ url_for('static', filename='basics/profile.png') }}" alt="Default profile picture" class="item-image">
                                 {% else %}
-                                    <img src="{{ url_for('static', filename='uploads/' + user.zdjecie_wskaznik) }}" alt="{{ user.nick }}'s profile picture" class="profile-picture">
+                                    <img src="{{ url_for('static', filename='uploads/' + user.zdjecie_wskaznik) }}" alt="{{ user.nick }}'s profile picture" class="item-image">
                                 {% endif %}
-                                {{ user.nick }}
-                            </a>
-                        </li>
+                                <span class="item-name">{{ user.nick }}</span>
+                            </div>
+                        </a>
                     {% endfor %}
-                </ul>
+                </div>
             {% elif search_performed %}
-                <p>Nie znaleziono użytkowników.</p>
+                <p class="tekst">Nie znaleziono użytkowników.</p>
             {% endif %}
         </div>
     </div>
-
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('search-input');
+            const resultsContainer = document.getElementById('search-results');
+        
+            function showDefaultMessage() {
+                resultsContainer.innerHTML = '<p class="tekst">Wpisz coś, aby rozpocząć wyszukiwanie.</p>';
+            }
+        
+            // Pokazuj domyślną wiadomość na początku
+            showDefaultMessage();
+        
+            searchInput.addEventListener('input', function() {
+                const query = this.value.trim();
+                if (query.length > 0) {
+                    fetch(`/search_ajax?q=${encodeURIComponent(query)}`)
+                        .then(response => response.json())
+                        .then(users => {
+                            console.log('Received users:', users);  // Debug log
+                            if (users.length > 0) {
+                                let html = '<h2 class="tekst-gluwny results-header">Wyniki wyszukiwania:</h2><div class="item-list">';
+                                users.forEach(user => {
+                                    console.log('Processing user:', user);  // Debug log
+                                    const profileUrl = `/user/${user.id}`;
+                                    const avatarUrl = user.avatar.startsWith('basics/') 
+                                        ? `/static/${user.avatar}`
+                                        : `/static/uploads/${user.avatar}`;
+                                    
+                                    html += `
+                                        <a href="${profileUrl}" class="item">
+                                            <div class="item-content">
+                                                <img src="${avatarUrl}" 
+                                                     alt="${user.nick}'s profile picture" class="item-image">
+                                                <span class="item-name">${user.nick}</span>
+                                            </div>
+                                        </a>
+                                    `;
+                                });
+                                html += '</div>';
+                                console.log('Generated HTML:', html);  // Debug log
+                                resultsContainer.innerHTML = html;
+                            } else {
+                                resultsContainer.innerHTML = '<p class="tekst">Nie znaleziono użytkowników.</p>';
+                            }
+                        });
+                } else {
+                    showDefaultMessage();
+                }
+            });
+        });
+        </script>
     <script>
         document.getElementById('search-form').addEventListener('submit', function(e) {
             e.preventDefault();
