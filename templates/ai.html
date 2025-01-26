@@ -4,10 +4,70 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
-    <title>Gemini Chat</title>
+    <title>Ai Chat</title>
 </head>
 <body>
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-info flash-message">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            let alerts = document.querySelectorAll('.flash-message');
+            
+            alerts.forEach(alert => {
+                setTimeout(() => {
+                    alert.classList.add('fade-out');
+                    
+                    alert.addEventListener('animationend', () => {
+                        alert.remove();
+                    });
+                }, 3000);
+            });
+        });
+    </script>
+    <div class="navigation">
+        <a href="{{ url_for('profile') }}">profil</a>
+        <a href="{{ url_for('main') }}">główna</a>
+        <a href="{{ url_for('ai') }}">AI</a>
+        <a href="{{ url_for('search') }}">wyszukaj urzytkownika</a>
+        <a href="{{ url_for('private') }}">prywatne</a>
+        <a href="{{ url_for('logout') }}">Wyloguj się</a>
+    </div>
     <div class="container">
+        <h1>AI Token Test</h1>
+        <form id="ai-token-form">
+            <label for="ai_token">AI Token:</label>
+            <input type="text" id="ai_token" name="ai_token" required>
+            <br>
+            <button type="token-submit">Update AI Token</button>
+        </form>
+        <script>
+            const aiTokenForm = document.getElementById('ai-token-form');
+            const aiTokenInput = document.getElementById('ai_token');
+            aiTokenForm.addEventListener('submit', function(e) {
+                console.log(aiTokenInput.value);
+                const url = `{{ url_for('ai_token', user_id=user.id) }}`;
+                fetch(url, {
+                    method: 'POST',
+                    body: new FormData(aiTokenForm)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+            });
+        </script>
+
+
+
+
         <h1>Gemini Chat</h1>
         <div class="chat-window">
             <div class="messages">
@@ -21,61 +81,31 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const messageForm = document.getElementById('message-form');
-            const messageInput = document.getElementById('message-input');
-            const messagesDiv = document.querySelector('.messages');
-
-            messageForm.addEventListener('submit', function(e) {
+            const aiTokenForm = document.getElementById('message-form');
+    
+            aiTokenForm.addEventListener('submit', function(e) {
                 e.preventDefault();
-
-                const message = messageInput.value.trim();
-
-                if (message !== '') {
-                    sendMessage(message);
-                    messageInput.value = '';
-                }
-            });
-
-            function sendMessage(message) {
-                const apiToken = 'YOUR_GEMINI_API_TOKEN';
-                const url = 'https://api.gemini.com/v1/chat/send';
-
+    
+                const url = `{{ url_for('get_token', user_id=user.id) }}`;
+    
                 fetch(url, {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${apiToken}`,
                         'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        message: message
-                    })
+                    }
                 })
                 .then(response => response.json())
                 .then(data => {
-                    if (data.status === 'success') {
-                        addMessage(message, 'user');
+                    if (data.status === 'OK') {
+                        console.log('AI token updated:', data.message);
                     } else {
-                        console.error('Error sending message:', data.message);
+                        console.error('Error fetching AI token:', data.message);
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
                 });
-            }
-
-            function addMessage(message, sender) {
-                const messageDiv = document.createElement('div');
-                messageDiv.classList.add('message');
-                messageDiv.classList.add(sender);
-
-                const messageText = document.createElement('p');
-                messageText.textContent = message;
-
-                messageDiv.appendChild(messageText);
-                messagesDiv.appendChild(messageDiv);
-
-                messagesDiv.scrollTop = messagesDiv.scrollHeight;
-            }
+            });
         });
     </script>
 </body>

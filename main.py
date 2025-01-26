@@ -63,6 +63,7 @@ class User(db.Model, UserMixin):
     mail = db.Column(db.String(255), nullable=False, unique=True)
     password = db.Column(db.String(255), nullable=False)
     opis = db.Column(db.String(4096), nullable=True)
+    googleapikey = db.Column(db.String(255), nullable=False, default="BRAK")
     zdjecie_wskaznik = db.Column(db.String(255), nullable=False)
     fs_uniquifier = db.Column(db.String(255), unique=True, nullable=False)
     active = db.Column(db.Boolean(), default=True)
@@ -914,8 +915,26 @@ def logout():
 @app.route('/ai.html', methods=['GET']) 
 @login_required
 def ai():
-    return render_template('ai.html')
+    return render_template('ai.html', user=current_user)
 
+@app.route('/ai_token/<int:user_id>', methods=['POST'])
+@login_required
+def ai_token(user_id):
+    user = User.query.get_or_404(user_id)
+    new_ai_token = request.form.get('ai_token')
+    if new_ai_token:
+        user.googleapikey = new_ai_token
+        db.session.commit()
+        flash('AI Token został zaktualizowany.', 'success')
+        return jsonify({"status": "OK", "message": "AI Token został zaktualizowany."})
+    else:
+        return jsonify({"status": "ERROR", "message": "Proszę wprowadzić nowy token AI."})
+    
+@app.route('/get_token/<int:user_id>', methods=['POST'])  
+@login_required   
+def get_token(user_id):
+    user = User.query.get_or_404(user_id)
+    return jsonify({"status": "OK", "message": "Token AI: " + str(user.googleapikey)})
 
 
 @app.route('/private.html', methods=['GET']) 
