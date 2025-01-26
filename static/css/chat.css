@@ -1,0 +1,110 @@
+:root {
+    --background-primary: #36393f;
+    --background-secondary: #2f3136;
+    --background-tertiary: #202225;
+    --text-normal: #dcddde;
+    --text-muted: #72767d;
+    --accent-color: rgb(31, 242, 209);
+    --accent-color-hover: rgb(28, 218, 188);
+    --accent-color-light: rgba(31, 242, 209, 0.2);
+    --accent-color-dark: rgb(25, 194, 167);
+}
+body {
+    background-color: var(--background-primary);
+    color: var(--text-normal);
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+    padding: 20px;
+    box-sizing: border-box;
+}
+button {
+    background-color: var(--accent-color);
+    color: var(--background-tertiary);
+    border: none;
+    border-radius: 5px;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    box-shadow: 0 0 5px 1px var(--accent-color-light);
+    transition: background-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+button:hover {
+    background-color: var(--accent-color-hover);
+    box-shadow: 0 0 10px 3px var(--accent-color-light);
+    transform: scale(1.02);
+}
+
+.container {
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.chat-window {
+    background-color: #fff;
+    min-width: 1200px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+}
+
+.messages {
+    height: 400px;
+    overflow-y: scroll;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+.message {
+    margin-bottom: 10px;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.user {
+    background-color: #e8f5ff;
+}
+
+.assistant {
+    background-color: #f0fff0;
+}
+
+#message-form {
+    display: flex;
+    align-items: center;
+    margin-top: 20px;
+}
+
+#message-input {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+#message-input:focus {
+    outline: none;
+}
+
+button[type="submit"] {
+    margin-left: 10px;
+    padding: 10px 20px;
+    background-color: #4CAF50;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+button[type="submit"]:hover {
+    background-color: #3e8e41;
+}
+
+button[type="submit"]:focus {
+    outline: none;
+}

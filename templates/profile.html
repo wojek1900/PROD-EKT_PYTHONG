@@ -3,17 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/profile.css') }}">
     <title>User Profile</title>
-    <style>
-        .profile-image {
-            width: 150px;
-            height: 150px;
-            object-fit: cover;
-            border-radius: 50%;
-        }
-    </style>
 </head>
 <body>
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-info flash-message">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            let alerts = document.querySelectorAll('.flash-message');
+            
+            alerts.forEach(alert => {
+                setTimeout(() => {
+                    alert.classList.add('fade-out');
+                    
+                    alert.addEventListener('animationend', () => {
+                        alert.remove();
+                    });
+                }, 3000);
+            });
+        });
+    </script>
     <div class="navigation">
         <a href="{{ url_for('profile') }}">profil</a>
         <a href="{{ url_for('main') }}">główna</a>
@@ -23,55 +38,132 @@
         <a href="{{ url_for('logout') }}">Wyloguj się</a>
     </div>
     
-    {% with messages = get_flashed_messages() %}
-        {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-info">{{ message }}</div>
-            {% endfor %}
+    <div class="container">
+        <h1>Profil użytkownika</h1>
+        {% if current_user.zdjecie_wskaznik == "basics/profile.png" %}
+            <img src="{{ url_for('static', filename='basics/profile.png') }}" alt="Default Avatar" class="profile-image">
+        {% else %}
+            <img src="{{ url_for('static', filename='uploads/' + current_user.zdjecie_wskaznik) }}" alt="User Avatar" class="profile-image">
         {% endif %}
-    {% endwith %}
-    <h1>Profil użytkownika</h1>
-    {% if current_user.zdjecie_wskaznik == "basics/profile.png" %}
-        <img src="{{ url_for('static', filename='basics/profile.png') }}" alt="Default Avatar" class="profile-image">
-    {% else %}
-        <img src="{{ url_for('static', filename='uploads/' + current_user.zdjecie_wskaznik) }}" alt="User Avatar" class="profile-image">
-    {% endif %}
-    <form action="{{ url_for('change_profile') }}" method="post" enctype="multipart/form-data">
-        <label for="nick">Nick:</label>
-        <input type="text" id="nick" name="nick" value="{{ current_user.nick }}"><br><br>
+        
+        <form action="{{ url_for('change_profile') }}" method="post" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="nick">Nick:</label>
+                <input type="text" id="nick" name="nick" value="{{ current_user.nick }}">
+            </div>
 
-        <label for="opis">Opis:</label>
-        <textarea id="opis" name="opis">{{ current_user.opis }}</textarea><br><br>
+            <div class="form-group">
+                <label for="opis">Opis:</label>
+                <textarea class ="opis" id="opis" name="opis">{{ current_user.opis }}</textarea>
+            </div>
 
-        <label for="avatar">Zdjęcie profilowe:</label>
-        <input type="file" id="avatar" name="avatar"><br><br>
+            <div class="form-group">
+                <label for="avatar">Zdjęcie profilowe:</label>
+                <div class="drop-zone">
+                    <p id="tekst">Przeciągnij i upuść tutaj lub wybierz pliki</p>
+                    <span id="attachment-name"></span>
+                </div>
+                <input type="file" id="avatar" name="avatar" hidden accept="image/*">
+            </div>
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const dropZone = document.querySelector('.drop-zone');
+                    const fileInput = document.getElementById('avatar');
+            
+                    dropZone.addEventListener('dragenter', function(e) {
+                        if (e.dataTransfer.items && e.dataTransfer.items[0].kind === 'file' && e.dataTransfer.items[0].type.startsWith('image/')) {
+                            this.classList.add('highlight');
+                        }
+                    });
+            
+                    dropZone.addEventListener('dragover', function(e) {
+                        if (e.dataTransfer.items && e.dataTransfer.items[0].kind === 'file' && e.dataTransfer.items[0].type.startsWith('image/')) {
+                            e.preventDefault();
+                            this.classList.add('highlight');
+                        }
+                    });
+            
+                    dropZone.addEventListener('dragleave', function() {
+                        this.classList.remove('highlight');
+                    });
+            
+                    dropZone.addEventListener('drop', function(e) {
+                        if (e.dataTransfer.items && e.dataTransfer.items[0].kind === 'file' && e.dataTransfer.items[0].type.startsWith('image/')) {
+                            e.preventDefault();
+                            this.classList.remove('highlight');
+                            handleFiles(e.dataTransfer.files);
+                        }
+                    });
+            
+                    fileInput.addEventListener('change', function(e) {
+                        handleFiles(e.target.files);
+                    });
+            
+                    function handleFiles(files) {
+                        const dt = new DataTransfer();
+            
+                        for (let file of files) {
+                            if (file.type.startsWith('image/')) {
+                                dt.items.add(file);
+                            }
+                        }
+            
+                        fileInput.files = dt.files;
+                        updateAttachmentPreviews();
+                    }
+            
+                    function updateAttachmentPreviews() {
+                        const attachmentName = document.getElementById('attachment-name');
+                        const tekst = document.getElementById('tekst');
+                        const files = fileInput.files;
+            
+                        if (files.length > 0) {
+                            let fileNames = '';
+            
+                            for (let i = 0; i < files.length; i++) {
+                                if (i > 0) {
+                                    fileNames += ', ';
+                                }
+                                fileNames += files[i].name;
+                            }
+            
+                            attachmentName.textContent = fileNames;
+                            tekst.textContent = '';
+                        } else {
+                            attachmentName.textContent = '';
+                        }
+                    }
+                });
+            </script>
+            <div class="form-group">
+                <input type="submit" value="Zapisz zmiany">
+            </div>
+        </form>
 
-        <input type="submit" value="Zapisz zmiany">
-    </form>
 
+        <h2>Informacje o profilu:</h2>
+        <ul>
+            <li>ID: {{ user.id }}</li>
+            <li>Active: {{ user.active }}</li>
+            <li>Roles: 
+                <ul>
+                    {% for role in user.roles %}
+                        <li>{{ role.name }} ({{ role.description }})</li>
+                    {% endfor %}
+                </ul>
+            </li>
+        </ul>
 
-    <h2>Informacje o profilu:</h2>
-    <ul>
-        <li>ID: {{ user.id }}</li>
-        <li>Active: {{ user.active }}</li>
-        <li>Roles: 
-            <ul>
-                {% for role in user.roles %}
-                    <li>{{ role.name }} ({{ role.description }})</li>
-                {% endfor %}
-            </ul>
-        </li>
-    </ul>
-
-    <form action="{{ url_for('toggle_admin', user_id=user.id) }}" method="POST">
-        <button type="submit">
-            {% if user.is_admin %}
-                Usuń uprawnienia administratora
-            {% else %}
-                Nadaj uprawnienia administratora
-            {% endif %}
-        </button>
-    </form>
+        <form action="{{ url_for('toggle_admin', user_id=user.id) }}" method="POST">
+            <button type="submit">
+                {% if user.is_admin %}
+                    Usuń uprawnienia administratora
+                {% else %}
+                    Nadaj uprawnienia administratora
+                {% endif %}
+            </button>
+        </form>
+    </div>
 </body>
 </html>
 

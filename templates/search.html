@@ -7,6 +7,28 @@
     <title>Wyszukaj użytkownika</title>
 </head>
 <body>
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-info flash-message">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            let alerts = document.querySelectorAll('.flash-message');
+            
+            alerts.forEach(alert => {
+                setTimeout(() => {
+                    alert.classList.add('fade-out');
+                    
+                    alert.addEventListener('animationend', () => {
+                        alert.remove();
+                    });
+                }, 3000);
+            });
+        });
+    </script>
     <div class="navigation">
         <a href="{{ url_for('profile') }}" class="przycisk_niebieski">profil</a>
         <a href="{{ url_for('main') }}" class="przycisk_niebieski">główna</a>

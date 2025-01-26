@@ -911,7 +911,10 @@ def logout():
 
 
 
-
+@app.route('/ai.html', methods=['GET']) 
+@login_required
+def ai():
+    return render_template('ai.html')
 
 
 
