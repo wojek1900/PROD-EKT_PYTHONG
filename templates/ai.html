@@ -39,16 +39,17 @@
     </div>
     <div class="container">
         <h1>AI Token Test</h1>
-        <form id="ai-token-form">
-            <label for="ai_token">AI Token:</label>
-            <input type="text" id="ai_token" name="ai_token" required>
+        <form id="ai-token-form" class="ai-token-form">
+            <label for="ai_token">Google api AI Token:</label>
+            <input class="wejscie" type="text" id="ai_token" name="ai_token" required>
             <br>
-            <button type="token-submit">Update AI Token</button>
+            <button type="token-submit">Update AI Token(odświerz po kliknięciu)</button>
         </form>
         <script>
             const aiTokenForm = document.getElementById('ai-token-form');
             const aiTokenInput = document.getElementById('ai_token');
             aiTokenForm.addEventListener('submit', function(e) {
+                e.preventDefault();
                 console.log(aiTokenInput.value);
                 const url = `{{ url_for('ai_token', user_id=user.id) }}`;
                 fetch(url, {
@@ -58,6 +59,7 @@
                 .then(response => response.json())
                 .then(data => {
                     console.log(data);
+                    window.location.href = window.location.href;
                 })
                 .catch(error => {
                     console.error('Error:', error);
@@ -68,12 +70,12 @@
 
 
 
-        <h1>Gemini Chat</h1>
+        <h2>Gemini Chat (trzeba poczkać cześto kilka sekund na odpowiedź bo nie wypisuje się dynamicznie ze względu na ograniczenia bez pakietów npm + własny system histori jest)</h2>
         <div class="chat-window">
             <div class="messages">
             </div>
             <form id="message-form">
-                <input type="text" id="message-input" placeholder="Type your message...">
+                <input class="wejscie2" type="text" id="message-input" placeholder="Type your message...">
                 <button type="submit">Send</button>
             </form>
         </div>
@@ -81,29 +83,77 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const aiTokenForm = document.getElementById('message-form');
-    
-            aiTokenForm.addEventListener('submit', function(e) {
+            const messageForm = document.getElementById('message-form');
+            const messageInput = document.getElementById('message-input');
+            const messagesContainer = document.querySelector('.messages');
+            
+            let earlierMessages = [];
+
+            messageForm.addEventListener('submit', function(e) {
                 e.preventDefault();
+                const userMessage = messageInput.value.trim();
+                if (userMessage === '') {
+                    return;
+                }
+                earlierMessages.push({role: "user", message: userMessage});
+                const userMessageElement = document.createElement('div');
+                userMessageElement.classList.add('message', 'user-message');
+                userMessageElement.textContent = userMessage;
+                messagesContainer.appendChild(userMessageElement);
+                
+                function converttostring(messages) {
+                    return messages.map(message => {
+                        const role = message.role === "user" ? "User: " : "Model: ";
+                        return `${role}${message.message}`;
+                    }).join('\n');
+                }
+
+                wiadomosci = converttostring(earlierMessages)
+                console.log(wiadomosci)
     
-                const url = `{{ url_for('get_token', user_id=user.id) }}`;
+                const message = messageInput.value;
+                if (message.trim() === '') {
+                    return;
+                }
+                messageInput.value = '';
+
+                const geminiApiKey = '{{user.googleapikey}}'; 
+                console.log(geminiApiKey);
+                const geminiApiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + geminiApiKey;
     
-                fetch(url, {
+                fetch(geminiApiUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
-                    }
+                    },
+                     body: JSON.stringify({
+                        contents: [{
+                            parts: [{
+                                text: wiadomosci + message
+                            }]
+                        }]
+                    })
                 })
                 .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'OK') {
-                        console.log('AI token updated:', data.message);
+                .then(geminiData => {
+                    console.log('Odpowiedź Gemini API:', geminiData);
+
+                    if (geminiData.candidates && geminiData.candidates.length > 0) {
+                        const botResponse = geminiData.candidates[0].content.parts[0].text;
+                        console.log(botResponse);
+                        earlierMessages.push({role: "model", message: botResponse});
+                        const botMessageElement = document.createElement('div');
+                        botMessageElement.classList.add('message', 'bot-message');
+                        botMessageElement.textContent = botResponse;
+                        messagesContainer.appendChild(botMessageElement);
+
+                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
                     } else {
-                        console.error('Error fetching AI token:', data.message);
+                        console.error('Brak wygenerowanej odpowiedzi od modelu.');
                     }
                 })
                 .catch(error => {
-                    console.error('Error:', error);
+                    console.error('Błąd podczas komunikacji z Gemini API:', error);
                 });
             });
         });

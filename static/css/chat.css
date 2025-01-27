@@ -57,6 +57,7 @@ body {
     margin: 0;
     padding: 20px;
     box-sizing: border-box;
+    text-align: center;
 }
 button {
     background-color: var(--accent-color);
@@ -81,26 +82,35 @@ button:hover {
     padding: 20px;
 }
 
-.chat-window {
-    background-color: #fff;
-    min-width: 1200px;
+.ai-token-form {
+    background-color: #f5f5f5;
+    padding: 20px;
     border-radius: 10px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 80%;
+    margin: 20px auto;
 }
 
-.messages {
-    height: 400px;
-    overflow-y: scroll;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
+.ai-token-form  {
+    background-color:#2f3136;
+    font-weight: bold;
 }
 
-.message {
-    margin-bottom: 10px;
-    padding: 10px;
-    border-radius: 5px;
+.wejscie{
+    margin-top: 20px;
+    background-color: #202225;
+    border: 0;
+    box-shadow: 0 0 8px 3px var(--accent-color);
+    color: #e8f5ff;
+}
+.wejscie2{
+    background-color: #202225;
+    border: 0;
+    box-shadow: 0 0 8px 3px var(--accent-color);
+    color: #e8f5ff;
 }
 
 .user {
@@ -167,4 +177,51 @@ button[type="submit"]:focus {
 
 .fade-out {
     animation: fadeOut 1s ease-out forwards;
+}
+
+.chat-window {
+    background-color: var(--background-tertiary);
+    display: flex;
+    flex-direction: column;
+    min-width: 300px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+}
+
+.message {
+    max-width: 70%;
+    padding: 10px;
+    border-radius: 10px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    margin-bottom: 10px;
+}
+
+.bot-message{
+    background-color: hsl(135, 100%, 87%);
+    border-radius: 10px;
+    margin-right: auto;
+    color: #202225;
+    width: auto;
+    max-width: 80%;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    white-space: pre-wrap; 
+    word-break: break-word; 
+}
+
+.user-message {
+    background-color: #e8f5ff ;
+    border-radius: 10px;
+    margin-left: auto;
+    color: #202225;
+    width: auto;
+    max-width: 70%;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    white-space: pre-wrap; 
+    word-break: break-word; 
 }

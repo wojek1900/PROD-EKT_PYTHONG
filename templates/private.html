@@ -64,8 +64,8 @@
         <a href="{{ url_for('private_chat', friend_id=friend.id) }}" class="item-link">
             <div class="item">
                 <div class="user-image-container">
-                    {% if friend.zdjecie_wskaznik == "basics/user.png" %}
-                    <img class="item-image" src="{{ url_for('static', filename='basics/user.png') }}">
+                    {% if friend.zdjecie_wskaznik == "basics/profile.png" %}
+                    <img class="item-image" src="{{ url_for('static', filename='basics/profile.png') }}">
                     {% else %}
                     <img class="item-image" src="{{ url_for('static', filename='uploads/' + friend.zdjecie_wskaznik) }}" alt="{{ friend.nick }} image">
                     {% endif %}

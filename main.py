@@ -422,6 +422,69 @@ def main():
 
 
 
+@app.route("/get_all_post_detailed")
+@login_required
+def get_all_post_detailed():
+    posts = public_post.query.order_by(public_post.created_at.desc()).all()
+    posts_data = []
+
+    for post in posts:
+        post_data = {
+            'id': post.id,
+            'text': post.text,
+            'isprivate': post.isprivate,
+            'fs_uniquifier': post.fs_uniquifier,
+            'created_at': post.created_at.isoformat(),
+            'edited_at': post.edited_at.isoformat() if post.edited_at else None,
+            'is_edited': post.is_edited,
+            'comments_allowed': post.comments_allowed,
+            'tags': [tag.name for tag in post.tags],
+            'author': {
+                'id': post.author.id,
+                'nick': post.author.nick,
+                'mail': post.author.mail,
+                'opis': post.author.opis,
+                'zdjecie_wskaznik': post.author.zdjecie_wskaznik,
+                'zdjecie_version': post.author.zdjecie_version,
+                'active': post.author.active,
+                'fs_uniquifier': post.author.fs_uniquifier,
+                'roles': [role.name for role in post.author.roles]
+            },
+            'attachments': [{
+                'id': att.id,
+                'file_name': att.file_name,
+                'original_filename': att.original_filename,
+                'file_path': att.file_path,
+                'file_type': att.file_type,
+                'created_at': att.created_at.isoformat()
+            } for att in post.post_attachments],
+            'comments': [{
+                'id': comment.id,
+                'text': comment.text,
+                'created_at': comment.created_at.isoformat(),
+                'edited_at': comment.edited_at.isoformat() if comment.edited_at else None,
+                'is_edited': comment.is_edited,
+                'author': {
+                    'id': comment.user.id,
+                    'nick': comment.user.nick,
+                    'mail': comment.user.mail
+                }
+            } for comment in post.post_comments],
+            'reactions': [{
+                'id': reaction.id,
+                'reaction_type': reaction.reaction_type,
+                'user': {
+                    'id': reaction.user.id,
+                    'nick': reaction.user.nick,
+                    'mail': reaction.user.mail
+                }
+            } for reaction in post.post_reactions]
+        }
+        posts_data.append(post_data)
+
+    return jsonify(posts_data)
+    
+
 @app.route("/profile.html")
 @login_required
 def profile():
@@ -551,7 +614,26 @@ def add_user():
 
 
 
+from flask import jsonify
 
+@app.route("/delete_comment/<int:comment_id>", methods=['DELETE'])
+@login_required
+def delete_comment(comment_id):
+    comment = public_comment.query.get_or_404(comment_id)
+    
+    post = comment.post
+    db.session.delete(comment)
+    db.session.commit()
+
+    # Aktualizuj liczbę komentarzy dla posta
+    comment_count = public_comment.query.filter_by(post_id=post.id).count()
+
+    return jsonify({
+        "status": "success", 
+        "message": "Komentarz został usunięty",
+        "post_id": post.id,
+        "comment_count": comment_count
+    })
 
 
 
@@ -578,20 +660,20 @@ def download_file(attachment_id):
 @login_required
 def add_public_post():
     try:
-        text = request.form.get('text')
+        text = request.form.get('messageInput')
         is_private = request.form.get('is_private') == 'on'
         no_comments = request.form.get('no_comments') == 'on'
-        files = request.files.getlist('files')
-        tags = request.form.get('tags', '').split(',')
-
+        files = request.files.getlist('fileInput')
+        print(files)
+        tags = request.form.get('tagInput', '').split(',')
         new_post = public_post(text=text, author=current_user, isprivate=is_private, comments_allowed=no_comments)
 
         for tag in tags:
             tag = tag.strip()
             if tag:
                 new_post.add_tag(tag)
-
-
+                
+        print(new_post.text)   
         db.session.add(new_post)
         db.session.flush() 
 
@@ -613,9 +695,10 @@ def add_public_post():
                     file_type=file_type
                 )
                 db.session.add(new_attachment)
-
+        print("2")
         db.session.commit()
-        return jsonify({"message": "Post został dodany pomyślnie.", "status": "SUCCESS"}), 200
+        print("3")
+        return jsonify({"message": "Post został dodany pomyślnie.", "status": "OK"}), 200
     except Exception as e:
         db.session.rollback()
         print(f"Błąd podczas dodawania posta: {str(e)}")
@@ -668,7 +751,7 @@ def get_reactions(post_id):
 
 
 
-@app.route('/delete_post/<int:post_id>', methods=['POST'])
+@app.route('/delete_post/<int:post_id>', methods=['DELETE'])
 @login_required
 def delete_post(post_id):
     post = public_post.query.get_or_404(post_id)
@@ -699,8 +782,15 @@ def edit_post(post_id):
 
     try:
         new_text = request.form.get('text', '').strip()
+        new_tags = request.form.get('tags', '').strip()
+        print(f"Otrzymane tagi: {new_tags}")
+        
+        # Konwertuj string tagów na listę
+        tags_list = [tag.strip() for tag in new_tags.split(',') if tag.strip()]
+        print(f"Lista tagów: {tags_list}")
+
         current_attachments = json.loads(request.form.get('attachments', '[]'))
-        new_files = request.files.getlist('new_files')
+        new_files = request.files.getlist('new_attachments')
 
         if not new_text and not current_attachments and not new_files:
             for attachment in post.post_attachments:
@@ -714,12 +804,24 @@ def edit_post(post_id):
             return jsonify({"status": "OK", "message": "Post został usunięty, ponieważ był pusty.", "action": "deleted"}), 200
 
         post.text = new_text
+        
+        # Usuń wszystkie istniejące tagi posta
+        post.tags.clear()
+        
+        # Dodaj nowe tagi
+        for tag_name in tags_list:
+            tag = Tag.query.filter_by(name=tag_name).first()
+            if not tag:
+                tag = Tag(name=tag_name)
+                db.session.add(tag)
+            post.tags.append(tag)
 
-        current_attachment_ids = [att['id'] for att in current_attachments]
-        existing_attachments = {str(att.id): att for att in post.post_attachments}
+        current_attachment_ids = [int(att['id']) for att in current_attachments if isinstance(att, dict) and 'id' in att]
+        existing_attachments = {att.id: att for att in post.post_attachments}
 
-        for att_id, attachment in existing_attachments.items():
+        for att_id in list(existing_attachments.keys()):
             if att_id not in current_attachment_ids:
+                attachment = existing_attachments[att_id]
                 file_path = os.path.join(app.config['UPLOAD_FOLDER'], attachment.file_name)
                 if os.path.exists(file_path):
                     os.remove(file_path)
@@ -736,7 +838,7 @@ def edit_post(post_id):
 
                 new_attachment = PostAttachment(
                     post_id=post.id, 
-                    file_name=unique_filename, 
+                    file_name=unique_filename,
                     original_filename=original_filename,
                     file_path=file_path, 
                     file_type=file.content_type
@@ -744,24 +846,26 @@ def edit_post(post_id):
                 db.session.add(new_attachment)
 
         post.is_edited = True
-        post.edited_at = datetime.utcnow().now()
+        post.edited_at = datetime.utcnow()
         db.session.commit()
 
         updated_attachments = [{"id": att.id, "filename": att.original_filename, "type": att.file_type} for att in post.post_attachments]
 
         return jsonify({
             "status": "OK", 
-            "message": "Post został zaktualizowany.", 
+            "message": "Post został zaktualizowany.",
             "attachments": updated_attachments,
-            "is_edited": post.is_edited
+            "is_edited": post.is_edited,
+            "tags": [tag.name for tag in post.tags]
         }), 200
+
     except Exception as e:
         db.session.rollback()
+        print(f"Błąd podczas aktualizacji posta: {str(e)}")
         return jsonify({
             "status": "ERROR", 
             "message": f"Wystąpił błąd podczas aktualizacji posta: {str(e)}"
         }), 500
-
 
 
 
@@ -929,13 +1033,6 @@ def ai_token(user_id):
         return jsonify({"status": "OK", "message": "AI Token został zaktualizowany."})
     else:
         return jsonify({"status": "ERROR", "message": "Proszę wprowadzić nowy token AI."})
-    
-@app.route('/get_token/<int:user_id>', methods=['POST'])  
-@login_required   
-def get_token(user_id):
-    user = User.query.get_or_404(user_id)
-    return jsonify({"status": "OK", "message": "Token AI: " + str(user.googleapikey)})
-
 
 @app.route('/private.html', methods=['GET']) 
 @login_required
@@ -1731,23 +1828,19 @@ if __name__ == "__main__":
 
 
 ################################################################
-# (raczej łatwe w zależności jak zrobimy) dodać AI po tokenie lub przez ollama bo po co się wysilać
-# (do ogarnięcia) dodać podsumowanie komentarzy przez ai
-# (trudne) poprawienie wiadomości prywatnych żeby działały jak te w grupie np. jest avatar użytkownika opis, jest avatar przy wiadomości, updatuje się wszystko na bierząco
-# (bardzo trudne) dodać get_user i get_posts get_comments itd żeby mieć informacje o danym użytkowniku i postach na bierząco żeby się odświeżały chodzi o to jak w grupach
-# (raczej łatwe) usuwanie komentarzy z postów
+# (trudne) do poprawy jest zrobienie rzeczy aktualnie czyli reakcje sie nie odznaczają jak ma być 0 komentarze nie usuwają się 
+# (łatwe) pozbyć się trybu private (mogą zostać w bazie danych żeby nie resetować)
+# (trudne) dodać style wszędzie gdzie nie ma
+# (trudne) przeportować funkcjonalności do zakłądek odpowiednich
+# (raczej łatwe) dodać podsumowanie komentarzy przez ai
+# (raczej łatwe) usuwanie komentarzy z postów(jeszcze nie działa do końca jest przycisk dla odpwoiednich osób ale nie działa)
 # (umiarokowane) poprawić wzystkie wady np. jak gdzies nie działa jakiś przycisk a powinien to naprawić. czy gdzieś nie ma opcji czegoś a powinna być to dodać. błędy jakie zaobserwowałem :
 # - (trudne) naprawić robienie postów i dodanie plików a potem ich usuwanie 
 # - (do ogarnięcia) naprawić nie ma opcji edycji usuwania postów dodawani komentarzy itd w profilu w stronie postu naprawić trzeba 
 # - (do ogarnięcia) naprawić brak wyświetlania poprawnej liczby komentarzy kiedy się ich nie odsłoni bo zawsze jest 0 na początku (już gdzies jest zrobione)
 # - (łatwe) naprawić to żeby admin nie widział przycisku do edycji 
-# (trudne) przeanalizować co można uprościć w projekcie np. jakies skrypty na pewno się powtarzają w jakiejś części
+# - (łatwe) w profile działa tylko drag and drop a nie da się wybierać tradycyjnie
 ################################################################
 
-################################################################
-# (najtrudniejsza część) co trzeba zrobić, aby ładnie wyglądało:
-# - ulepszyć wygląd 
-# - przywrócić system particle dodać opcje kliknięcia aby zmienić mouseForce na -10
-################################################################
 
 
