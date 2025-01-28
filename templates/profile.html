@@ -69,7 +69,9 @@
                 document.addEventListener('DOMContentLoaded', function() {
                     const dropZone = document.querySelector('.drop-zone');
                     const fileInput = document.getElementById('avatar');
-            
+                    dropZone.addEventListener('click', function(e) {
+                        fileInput.click();
+                });
                     dropZone.addEventListener('dragenter', function(e) {
                         if (e.dataTransfer.items && e.dataTransfer.items[0].kind === 'file' && e.dataTransfer.items[0].type.startsWith('image/')) {
                             this.classList.add('highlight');

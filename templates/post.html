@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mian.css') }}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Post by {{ post.author.nick }}</title>
 </head>
@@ -16,6 +16,7 @@
         <a href="{{ url_for('logout') }}">Wyloguj się</a>
     </div>
 
+    <h1 class="welcome-header">Posty na tej stronie nie są aktualizowane na bierząco i wymagają odświerzenia</h1>
     <div class="post">
         <div class="post-header">
             {% if post.author.zdjecie_wskaznik == "basics/profile.png" %}
@@ -74,32 +75,10 @@
             {% endif %}
         </div>
         <div class="post-statistics">
-            <h4>Statystyki reakcji</h4>
+            <h4 style="color:white">Statystyki reakcji</h4>
             <canvas id="reactionChart-{{ post.id }}" width="300" height="100"></canvas>
-            <p>Liczba komentarzy: <span id="commentCount-{{ post.id }}">{{ post.post_comments|length }}</span></p>
+            <p style="color:white">Liczba komentarzy: <span id="commentCount-{{ post.id }}">{{ post.post_comments|length }}</span></p>
         </div>
-        {% if not post.comments_allowed %}
-            <button class="toggle-comments" data-post-id="{{ post.id }}">Komentarze ({{ post.comments|length }})</button>
-            {% endif %}
-            <div class="comments" id="comments-{{ post.id }}" style="display: none;">
-                <form class="comment-form" data-post-id="{{ post.id }}">
-                    <textarea name="comment-text" required></textarea>
-                    <button type="submit">Dodaj komentarz</button>
-                </form>
-                {% for comment in post.post_comments %}
-                <div class="comment">
-                    <div class="comment-header">
-                        {% if comment.user.zdjecie_wskaznik == "basics/profile.png" %}
-                        <img src="{{ url_for('static', filename='basics/profile.png') }}" alt="Default profile picture" class="profile-picture">
-                        {% else %}
-                        <img src="{{ url_for('static', filename='uploads/' + comment.user.zdjecie_wskaznik) }}" alt="{{ comment.user.nick }}'s profile picture" class="profile-picture">
-                        {% endif %}
-                        <p class="author-name">{{ comment.user.nick }}</p>
-                    </div>
-                    <p class="comment-content">{{ comment.text }}</p>
-                </div>
-                {% endfor %}
-            </div>
         </div>
     </div>
 

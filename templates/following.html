@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="static/css/styles.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mian.css') }}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Discover</title>
 </head>
@@ -10,50 +10,40 @@
     {% with messages = get_flashed_messages() %}
         {% if messages %}
             {% for message in messages %}
-                <div class="alert alert-info">{{ message }}</div>
+                <div class="alert alert-info flash-message">{{ message }}</div>
             {% endfor %}
         {% endif %}
     {% endwith %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            let alerts = document.querySelectorAll('.flash-message');
+            
+            alerts.forEach(alert => {
+                setTimeout(() => {
+                    alert.classList.add('fade-out');
+                    
+                    alert.addEventListener('animationend', () => {
+                        alert.remove();
+                    });
+                }, 3000);
+            });
+        });
+    </script>
     <div class="navigation">
         <a href="{{ url_for('profile') }}">profil</a>
         <a href="{{ url_for('main') }}">główna</a>
-        <a href="ai.html">AI</a>
+        <a href="{{ url_for('ai') }}">AI</a>
         <a href="{{ url_for('search') }}">wyszukaj urzytkownika</a>
         <a href="{{ url_for('private') }}">prywatne</a>
         <a href="{{ url_for('logout') }}">Wyloguj się</a>
     </div>
-    <div>
-        <!--<a href="glowna">główna</a>-->
-        <a href="obesrwowane">obesrwowane</a>
-        <a href="spolecznosci">społeczności</a>
+    <div class="nawigacja">
+        <a href="{{ url_for('main') }}">główna</a>
+        <a href="{{ url_for('following') }}">obesrwowane</a>
     </div>
-    <h1>User Profile</h1>
-    <p>Witaj, {{ user.nick }}!</p>
-    <ul>
-        <li>Roles: 
-            <ul>
-                {% for role in user.roles %}
-                    <li>{{ role.name }} ({{ role.description }})</li>
-                {% endfor %}
-            </ul>
-        </li>
-    </ul>
-    <form id="post-form" enctype="multipart/form-data">
-        <textarea name="text" placeholder="Co słychać?"></textarea>
-        <div class="attachments-container">
-            <label for="files">Załączniki:</label>
-            <input type="file" id="files" name="files" multiple accept="*">
-            <div id="attachments-preview"></div>
-        </div>
-        <label>
-            <input type="checkbox" name="is_private"> Prywatny post
-            <input type="checkbox" name="no_comments"> brak komentarzy
-        </label>
-        <button type="submit">Wyślij</button>
-    </form>
-
+    
+    <h1 class="welcome-header">POSTY tutaj są statyczne i wymagają odświerzenia jeśli chce się zobaczyć zmiany</h1>
     <div id="posts">
-        <p>POSTY</p>
         {% for post in posts %}
         {% if current_user.is_following(post.user_id) %}
             <div class="post post-clickable" data-post-id="{{ post.id }}">
@@ -69,7 +59,6 @@
                     {% if post.author.nick == current_user.nick or current_user.has_role('admin'):%}
                         <div class="options-public-post">
                             <button class="remove-post" data-post-id="{{ post.id }}" value="USUN">USUN</button>
-                            <button class="edit-post" data-post-id="{{ post.id }}" value="ZMIEN">ZMIEN</button>
                         </div>
                     {% endif %}
                 </div>
@@ -117,7 +106,7 @@
                 </div>
                 <div class="edited_post_comment">
                     {% if post.is_edited %}
-                    Edytowany o {{ post.edited_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                    Edytowany o {{ post.edited_at | add_hours(1)  }}
                     {% endif %}
                 </div>
                 {% if not post.comments_allowed %}
@@ -146,24 +135,37 @@
         {% endif %}
         {% endfor %}
 
-        <div class="overlay" id="overlay"></div>
-    <div class="edit-form" id="editForm">
-        <h2>Edytuj post</h2>
-        <textarea id="editContent" rows="4" cols="50"></textarea>
-        <div class="editattachments">
-            <label for="editFiles">Załączniki:</label>
-            <div id="existingAttachments">
-            </div>
-            <input type="file" id="editFiles" multiple accept="*">
-        </div>
-        <button id="saveEdit">Zapisz</button>
-        <button id="cancelEdit">Anuluj</button>
-    </div>
-    </div>
-    
-
-
-    <script src="{{ url_for('static', filename='js/send.js') }}"></script>
+        <script>
+            function deletePost(postId) {
+                if (confirm('Czy na pewno chcesz usunąć ten post?')) {
+                    fetch(`/delete_post/${postId}`, {
+                        method: 'DELETE',
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if(data.status === "OK") {
+                            document.querySelector(`.post[data-post-id="${postId}"]`).remove();
+                        } else {
+                            alert(data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Wystąpił błąd podczas usuwania posta.');
+                    });
+                }
+            }
+            document.addEventListener('DOMContentLoaded', function() {
+                const removePostButtons = document.querySelectorAll('.remove-post');
+            
+                removePostButtons.forEach(button => {
+                    button.addEventListener('click', function() {
+                        const postId = this.dataset.postId;
+                        deletePost(postId);
+                    });
+                });
+            });
+        </script>
     <script src="{{ url_for('static', filename='js/edit-del.js') }}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {

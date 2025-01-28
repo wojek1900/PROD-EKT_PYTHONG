@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="static/css/styles.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/mian.css') }}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Discover</title>
@@ -11,21 +10,36 @@
     {% with messages = get_flashed_messages() %}
         {% if messages %}
             {% for message in messages %}
-                <div class="alert alert-info">{{ message }}</div>
+                <div class="alert alert-info flash-message">{{ message }}</div>
             {% endfor %}
         {% endif %}
     {% endwith %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            let alerts = document.querySelectorAll('.flash-message');
+            
+            alerts.forEach(alert => {
+                setTimeout(() => {
+                    alert.classList.add('fade-out');
+                    
+                    alert.addEventListener('animationend', () => {
+                        alert.remove();
+                    });
+                }, 3000);
+            });
+        });
+    </script>
     <div class="navigation">
         <a href="{{ url_for('profile') }}">profil</a>
         <a href="{{ url_for('main') }}">główna</a>
-        <a href="ai.html">AI</a>
+        <a href="{{ url_for('ai') }}">AI</a>
         <a href="{{ url_for('search') }}">wyszukaj urzytkownika</a>
         <a href="{{ url_for('private') }}">prywatne</a>
         <a href="{{ url_for('logout') }}">Wyloguj się</a>
     </div>
-    <div>
-        <!--<a href="glowna">główna</a>-->
-        <a href="following.html">obesrwowane</a>
+    <div class="nawigacja">
+        <a href="{{ url_for('main') }}">główna</a>
+        <a href="{{ url_for('following') }}">obesrwowane</a>
     </div>
 <div class="search-form">
     <form id="search-form" action="{{ url_for('main') }}" method="GET">
@@ -39,17 +53,17 @@
         <button type="submit">Szukaj</button>
     </form>
 </div>
-    <h1>User Profile</h1>
-    <p>Witaj, {{ user.nick }}!</p>
+    <h1 class="welcome-header">Witaj, {{ user.nick }}!</h1>
 
     <form id="postForm" enctype="multipart/form-data">
+        <h2 class="wysyłanie">WYŚLIJ POST</h2>
         <textarea id="messageInput" name="messageInput" rows="5" required></textarea>
         <div id="drop-zone" class="drop-zone">
             <p>Przeciągnij i upuść pliki tutaj lub kliknij, aby wybrać</p>
             <input type="file" id="fileInput" name="fileInput" hidden multiple>
         </div>
         <label>
-            <input type="checkbox" name="is_private"> Prywatny post
+            <input type="checkbox" name="is_private" hidden>
             <input type="checkbox" name="no_comments"> brak komentarzy
             <input type="text" id="tagInput" name="tagInput" placeholder="Enter tags (comma-separated)">
         </label>
@@ -90,7 +104,9 @@
                     {% if post.author.nick == current_user.nick or current_user.has_role('admin'):%}
                         <div class="options-public-post">
                             <button class="remove-post" data-post-id="{{ post.id }}" value="USUN">USUN</button>
+                            {% if post.author.nick == current_user.nick%}
                             <button class="edit-post" data-post-id="{{ post.id }}" value="ZMIEN">ZMIEN</button>
+                            {% endif %}
                         </div>
                     {% endif %}
                 </div>
@@ -112,7 +128,7 @@
                             </audio>
                         {% else %}
                             <p>
-                                <a href="{{ url_for('download_file', attachment_id=attachment.id) }}">Pobierz {{ attachment.original_filename }}</a> 
+                                <a data-id="{{ attachment.id }}" href="{{ url_for('download_file', attachment_id=attachment.id) }}">Pobierz {{ attachment.original_filename }}</a> 
                             </p>
                         {% endif %}
                     {% endfor %}
@@ -138,7 +154,7 @@
                 </div>
                 <div class="edited_post_comment">
                     {% if post.is_edited %}
-                    Edytowany o {{ post.edited_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                    Edytowany o {{ post.edited_at | add_hours(1)  }}
                     {% endif %}
                 </div>
                 <div id="overlaymessages" style="display: none;">
@@ -158,7 +174,9 @@
                     </div>
                 </div>
                 {% if not post.comments_allowed %}
-                <button class="toggle-comments" data-post-id="{{ post.id }}">Komentarze ({{ post.comments|length }})</button>
+                <button class="toggle-comments" data-post-id="{{ post.id }}">Komentarze ({{ post.post_comments|length }})</button>
+                {% else %}
+                <p style="color: red;">Komentarze są niedozwolone</p>
                 {% endif %}
                 <div class="comments" id="comments-{{ post.id }}" style="display: none;">
                     <form class="comment-form" data-post-id="{{ post.id }}">
@@ -419,51 +437,7 @@
             });
         });
     </script>
-    <script>
-        function addComment(postId) {
-            const commentText = document.querySelector(`#comment-input-${postId}`).value;
-            if (!commentText) {
-                alert('Proszę wpisać treść komentarza.');
-                return;
-            }
-        
-            fetch(`/add_comment/${postId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: `comment_text=${encodeURIComponent(commentText)}`
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    const commentsContainer = document.querySelector(`#comments-${postId}`);
-                    const newCommentHtml = `
-                        <div class="comment">
-                            <div class="comment-header">
-                                <img src="/static/basics/profile.png" alt="Default profile picture" class="profile-picture">
-                                <p class="author-name">${data.comment.author}</p>
-                            </div>
-                            <p class="comment-content">${data.comment.text}</p>
-                        </div>
-                    `;
-                    commentsContainer.insertAdjacentHTML('beforeend', newCommentHtml);
-                    document.querySelector(`#comment-input-${postId}`).value = '';
-                    
-                    // Aktualizacja liczby komentarzy
-                    const commentButton = document.querySelector(`button[data-post-id="${postId}"]`);
-                    const currentCount = parseInt(commentButton.textContent.match(/\d+/)[0]);
-                    commentButton.textContent = `Komentarze (${currentCount + 1})`;
-                } else {
-                    alert('Wystąpił błąd podczas dodawania komentarza.');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Wystąpił błąd podczas dodawania komentarza.');
-            });
-        }
-    </script>
+    
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const overlaymessages = document.getElementById('overlaymessages');
@@ -568,12 +542,12 @@
             
             const contentElement = postElement.querySelector('.post-content');
             const content = contentElement.textContent;
-            
-            const attachments = Array.from(postElement.querySelectorAll('.attachments [data-id]')).map(el => ({
+            const attachments = Array.from(postElement.querySelectorAll('[data-id]')).map(el => ({
                 id: el.dataset.id,
                 type: el.tagName.toLowerCase(),
                 src: el.src || el.querySelector('source')?.src
             }));
+            console.log("attachmenty wykryte " + attachments);
 
             const tags = Array.from(postElement.querySelectorAll('.tag')).map(tag => tag.textContent).join(', ');
             
@@ -607,7 +581,7 @@
         overlaymessages.style.left = `${rect.left}px`;
         overlaymessages.style.width = `${rect.width}px`;
         overlaymessages.style.height = `${rect.height}px`;
-        overlaymessages.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+        overlaymessages.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
         overlaymessages.style.zIndex = '1000';
     
         editMessageForm.style.display = 'block';
@@ -638,17 +612,6 @@
         editMessageFiles.value = '';
     }
 
-    function hideEditForm() {
-        overlaymessages.style.display = 'none';
-        editMessageForm.style.display = 'none';
-        currentPostId = null;
-        editMessageContent.value = '';
-        tagInput.value = '';
-        existingMessageAttachments.innerHTML = '';
-        editMessageAttachmentsPreview.innerHTML = '';
-        attachmentsToDelete = [];
-        editMessageFiles.value = '';
-    }
 
             function createAttachmentElement(attachment) {
                 console.log('Attachment ' + attachment.id );
@@ -737,19 +700,32 @@
                 const formData = new FormData();
                 formData.append('text', editMessageContent.value);
                 formData.append('tags', tagInput.value);
-                
+                Array.from(existingMessageAttachments.children)
                 // Collect existing attachments that should be kept
                 const existingAttachments = Array.from(existingMessageAttachments.children)
-                    .map(child => child.querySelector('img, a'))
-                    .filter(element => element)
-                    .map(element => ({
-                        id: element.dataset.id,
-                        type: element.tagName.toLowerCase(),
-                        src: element.src || element.querySelector('source')?.src
-                    }))
-                    .filter(attachment => !attachmentsToDelete.includes(attachment.id));
+                    .map(child => {
+                        const element = child.querySelector('img, video, audio, a');
+                        if (element) {
+                            let type, src;
+                            if (element.tagName.toLowerCase() === 'a') {
+                                type = 'file';
+                                src = element.href;
+                            } else {
+                                type = element.tagName.toLowerCase();
+                                src = element.src || element.querySelector('source')?.src;
+                            }
+                            return {
+                                id: element.dataset.id,
+                                type: type,
+                                src: src
+                            };
+                        }
+                        return null;
+                    })
+                    .filter(attachment => attachment && !attachmentsToDelete.includes(attachment.id));
                 
                 // Append existing attachments to keep
+                console.log(JSON.stringify(existingAttachments));
                 formData.append('attachments', JSON.stringify(existingAttachments));
                 
                 // Append attachments to delete
@@ -759,6 +735,8 @@
                 for (let file of editMessageFiles.files) {
                     formData.append('new_attachments', file);
                 }
+                console.log("Existing attachments:", Array.from(formData.getAll('existing_attachments[]')));
+                console.log("New files:", Array.from(formData.getAll('new_files[]')));
                     
                 try {
                     const response = await fetch(`/edit_post/${currentPostId}`, {
@@ -883,30 +861,36 @@
         </script>
 <script src="{{ url_for('static', filename='js/post-przycisk.js') }}"></script>
 <script>
-    function deleteComment(event) {
-        event.stopPropagation();
-        const commentId = event.target.dataset.commentId;
-        
-        if (!confirm('Czy na pewno chcesz usunąć ten komentarz?')) return;
 
-        fetch(`/delete_comment/${commentId}`, {
-            method: 'DELETE',
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                const commentElement = event.target.closest('.comment');
-                commentElement.remove();
-                
-                // Aktualizuj licznik w przycisku
-                const postId = commentElement.closest('[id^="comments-"]').id.split('-')[1];
-                const toggleButton = document.querySelector(`button[data-post-id="${postId}"]`);
-                const count = document.querySelectorAll(`#comments-${postId} .comment`).length;
-                toggleButton.textContent = `Komentarze (${count})`;
-            }
-        })
-        .catch(error => console.error('Error:', error));
-    }
+document.querySelectorAll('.comments').forEach(container => {
+    container.addEventListener('click', function(event) {
+        if (event.target.classList.contains('delete-comment')) {
+            event.stopPropagation();
+            const commentId = event.target.dataset.commentId;
+            
+            if (!confirm('Czy na pewno chcesz usunąć ten komentarz?')) return;
+
+            fetch(`/delete_comment/${commentId}`, {
+                method: 'DELETE',
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const commentElement = event.target.closest('.comment');
+                    commentElement.remove();
+                    
+                    const postId = commentElement.closest('[id^="comments-"]').id.split('-')[1];
+                    const toggleButton = document.querySelector(`button[data-post-id="${postId}"]`);
+                    const count = document.querySelectorAll(`#comments-${postId} .comment`).length;
+                    if (toggleButton) {
+                        toggleButton.textContent = `Komentarze (${count})`;
+                    }
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        }
+    });
+});
     document.addEventListener('DOMContentLoaded', function() {
         const toggleButtons = document.querySelectorAll('.toggle-comments');
     
@@ -930,14 +914,11 @@
 <script src="{{ url_for('static', filename='js/search.js') }}">
 </script>
 <script>
-    // Konfiguracja
-    const CHECK_INTERVAL = 1000; // 5 sekund
+    const CHECK_INTERVAL = 1000; 
     let previousPostsData = null;
     
-    // Głębokie porównywanie obiektów
     const deepCompare = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     
-    // Znajdowanie różnic w tablicach
     const findArrayDifferences = (oldArr, newArr, key) => ({
         added: newArr.filter(n => !oldArr.some(o => o[key] === n[key])),
         removed: oldArr.filter(o => !newArr.some(n => n[key] === o[key])),
@@ -947,35 +928,34 @@
         })
     });
     
-    // Aktualizacja interfejsu użytkownika
     const updateElements = {
-        // Reakcje
         reactions(postId, reactions) {
+            const allReactionTypes = ['like', 'love', 'haha', 'wow', 'sad'];
+            allReactionTypes.forEach(type => {
+                const element = document.querySelector(`#count-${postId}-${type}`);
+                if (element) element.textContent = '0';
+            });
+        
             reactions.forEach(([type, count]) => {
                 const element = document.querySelector(`#count-${postId}-${type}`);
                 if (element) element.textContent = count;
             });
         },
     
-        // Komentarze
         comments(postElement, newComments) {
             const container = postElement.querySelector('.comments');
             if (!container) return;
     
-            // Aktualizacja przycisku
             const btn = postElement.querySelector('.toggle-comments');
             if (btn) btn.textContent = `Komentarze (${newComments.length})`;
     
-            // Aktualizacja listy
             const existingComments = [...container.querySelectorAll('.comment')];
             const newCommentIds = newComments.map(c => c.id.toString());
     
-            // Usuń nieaktualne komentarze
             existingComments.forEach(comment => {
                 if (!newCommentIds.includes(comment.dataset.commentId)) comment.remove();
             });
     
-            // Dodaj/Aktualizuj komentarze
             newComments.forEach(comment => {
                 let element = container.querySelector(`[data-comment-id="${comment.id}"]`);
                 
@@ -1015,12 +995,10 @@
             const authorName = element.querySelector('.author-name');
             const img = element.querySelector('img');
     
-            // Aktualizacja treści
             if (content.textContent !== comment.text) {
                 content.textContent = comment.text;
             }
     
-            // Aktualizacja statusu edycji
             if (comment.is_edited) {
                 if (!edited) {
                     const small = document.createElement('small');
@@ -1031,19 +1009,16 @@
                 edited.remove();
             }
     
-            // Aktualizacja autora
             if (authorName.textContent !== comment.author.nick) {
                 authorName.textContent = comment.author.nick;
             }
     
-            // Aktualizacja awatara
             const newSrc = comment.author.zdjecie_wskaznik === "basics/profile.png" 
                 ? "/static/basics/profile.png" 
                 : "/static/uploads/" + comment.author.zdjecie_wskaznik;
             if (img.src !== newSrc) img.src = newSrc;
         },
     
-        // Załączniki
         attachments(postElement, newAttachments) {
             const container = postElement.querySelector('.attachments');
             if (!container) return;
@@ -1051,12 +1026,10 @@
             const existing = [...container.children];
             const newIds = newAttachments.map(a => a.id.toString());
     
-            // Usuń brakujące
             existing.forEach(el => {
                 if (!newIds.includes(el.dataset.id)) el.remove();
             });
     
-            // Dodaj nowe
             newAttachments.forEach(att => {
                 if (!container.querySelector(`[data-id="${att.id}"]`)) {
                     container.appendChild(this.createAttachment(att));
@@ -1070,7 +1043,13 @@
             
             if (att.file_type.startsWith('image/')) {
                 div.innerHTML = `<img src="/static/uploads/${att.file_name}" alt="${att.original_filename}">`;
-            } else if (att.file_type.startsWith('video/')) {
+            } else if (att.file_type.startsWith('audio/')){
+                div.innerHTML = `
+                    <audio controls>
+                        <source src="/static/uploads/${att.file_name}" type="${att.file_type}">
+                    </audio>
+                `;
+            }else if (att.file_type.startsWith('video/')) {
                 div.innerHTML = `
                     <video controls>
                         <source src="/static/uploads/${att.file_name}" type="${att.file_type}">
@@ -1166,7 +1145,7 @@
                         return acc;
                     }, {})
                 ));
-    
+                
                 updateElements.comments(postElement, updatedPost.comments);
                 updateElements.attachments(postElement, updatedPost.attachments);
                 updateElements.tags(postElement, updatedPost.tags);

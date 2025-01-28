@@ -944,6 +944,7 @@
                         type: el.tagName.toLowerCase(),
                         src: el.src || el.href
                     }));
+                    console.log(attachments);
                     
                     console.log('Editing message:', { messageId, content, attachments });
                     showEditForm(messageId, content, attachments);

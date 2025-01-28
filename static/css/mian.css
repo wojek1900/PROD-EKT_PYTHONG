@@ -9,6 +9,56 @@
     --accent-color-light: rgba(31, 242, 209, 0.2);
     --accent-color-dark: rgb(25, 194, 167);
 }
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background-color: var(--background-primary);
+}
+.navigation {
+    background-color: var(--background-secondary);
+    padding: 15px 0;
+    position: sticky;
+    z-index: 1000;
+    display: flex;
+    margin-top: 15px;
+    margin-left: auto;
+    margin-right: auto;
+    width: 80%;
+    border-radius: 25px;
+    justify-content: space-around;
+    align-items: center;
+    box-shadow: 0 2px 10px 0 rgba(0,0,0,.2);
+    transition: background-color 0.8s ease, transform 0.8s, box-shadow 0.8s;
+}
+
+.navigation:hover {
+    background-color: rgba(31, 242, 209, 0.1);
+    transform: scale(1.02);
+    box-shadow: var(--accent-color) 0 0 15px 5px;
+}
+
+.navigation a {
+    color: var(--text-normal);
+    text-decoration: none;
+    padding: 8px 15px;
+    border-radius: 15px;
+    transition: background-color 0.3s ease, transform 0.3s, box-shadow 0.5s, color 0.3s;
+}
+
+.navigation a:hover {
+    background-color: var(--accent-color);
+    color: var(--background-tertiary);
+    transform: scale(1.1);
+    box-shadow: var(--accent-color) 0 0 8px 2px;
+}
 #drop-zone {
     border: 2px dashed var(--accent-color);
     border-radius: 5px;
@@ -40,30 +90,563 @@
     border-color: var(--accent-color-hover);
     background-color: rgba(67, 181, 130, 0.301);
 }
-#editMessageForm {
-    background-color: rgba(255, 255, 255, 0.9);
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+
+
+
+
+#posts {
+    width: 80%;
+    margin: 20px auto;
 }
 
-#editMessageForm input,
-#editMessageForm textarea {
-    background-color: white;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    padding: 8px;
+.post-clickable {
+    cursor: pointer;
+}
+
+.post {
+    background-color: var(--background-secondary);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.post:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+
+.post-header {
+    display: flex;
+    align-items: center;
     margin-bottom: 10px;
 }
 
-#editMessageForm button {
-    background-color: #007bff;
+.profile-picture {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    margin-right: 10px;
+}
+
+.author-name {
+    color: var(--text-normal);
+    font-weight: bold;
+}
+
+.options-public-post {
+    margin-left: auto;
+}
+
+.remove-post, .edit-post {
+    background-color: var(--accent-color);
+    color: var(--background-tertiary);
+    border: none;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.remove-post:hover, .edit-post:hover {
+    background-color: var(--accent-color-hover);
+}
+
+.post-content {
+    color: var(--text-normal);
+    margin-bottom: 15px;
+}
+
+.attachments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.attachments img, .attachments video, .attachments audio {
+    max-width: 100%;
+    border-radius: 5px;
+}
+
+.tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 10px;
+}
+
+.tag {
+    background-color: var(--accent-color-light);
+    color: var(--accent-color);
+    padding: 3px 8px;
+    border-radius: 15px;
+    font-size: 0.9em;
+}
+
+.reactions {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.reaction-btn {
+    background-color: transparent;
+    border: 1px solid var(--accent-color);
+    color: var(--text-normal);
+    padding: 5px 10px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.reaction-btn:hover {
+    background-color: var(--accent-color);
+    color: var(--background-tertiary);
+}
+
+.edited_post_comment {
+    font-size: 0.8em;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+}
+
+.toggle-comments {
+    background-color: var(--accent-color);
+    color: var(--background-tertiary);
+    border: none;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.toggle-comments:hover {
+    background-color: var(--accent-color-hover);
+}
+
+.comments {
+    margin-top: 15px;
+}
+
+.comment-form textarea {
+    width: 100%;
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid var(--accent-color);
+    background-color: var(--background-tertiary);
+    color: var(--text-normal);
+    margin-bottom: 10px;
+}
+
+.comment-form button {
+    background-color: var(--accent-color);
+    color: var(--background-tertiary);
+    border: none;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.comment-form button:hover {
+    background-color: var(--accent-color-hover);
+}
+
+.comment {
+    background-color: var(--background-tertiary);
+    border-radius: 5px;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+.comment-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.comment-content {
+    color: var(--text-normal);
+}
+
+.delete-comment {
+    background-color: #dc3545;
     color: white;
     border: none;
-    padding: 10px 15px;
+    padding: 3px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.3s ease, box-shadow 0.5s ease;
+}
+
+
+.delete-comment:hover {
+    background-color: #f01e33;
+    transform: scale(1.05);
+    box-shadow: 0px 0px 10px 3px #f01e33;
+}
+
+#searchForm {
+    background-color: var(--background-secondary);
+    color: aliceblue;
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+#searchForm input[type="text"] {
+    background-color: var(--background-secondary);
+    color: aliceblue;
+    flex-grow: 1;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin-right: 10px;
+}
+
+#searchForm button {
+    padding: 10px 20px;
+    background-color: var(--accent-color);
+    color: white;
+    border: none;
     border-radius: 4px;
     cursor: pointer;
 }
 
-#editMessageForm button:hover {
-    background-color: #0056b3;
+#searchForm button:hover {
+    background-color: var(--accent-color-hover);
+}
+
+#searchForm input[type="radio"] {
+    margin-right: 5px;
+}
+
+#searchForm label {
+    margin-right: 15px;
+    width: 80%;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+#postForm {
+    background-color: var(--background-secondary);
+    border-radius: 15px;
+    margin-bottom: 20px;
+    margin-left: 50px;
+    margin-right: 50px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+}
+
+#messageInput {
+    background-color: var(--background-secondary);
+    color: aliceblue;
+    width: 90%;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    align-self: center;
+}
+
+#drop-zone {
+    border: 2px dashed #ccc;
+    color: aliceblue;
+    width: 90%;
+    border-radius: 4px;
+    padding: 20px;
+    text-align: center;
+    margin-bottom: 10px;
+    cursor: pointer;
+}
+
+#drop-zone.highlight {
+    border-color: var(--accent-color);
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
+#postForm label {
+    color: aliceblue;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 10px;
+    width: 100%;
+}
+
+#postForm input[type="checkbox"] {
+    margin-right: 5px;
+}
+
+#tagInput {
+    background-color: var(--background-secondary);
+    color: aliceblue;
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    align-self: center;
+}
+
+#postForm button[type="submit"] {
+    padding: 10px 20px;
+    background-color: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+#postForm button[type="submit"]:hover {
+    background-color: var(--accent-color-hover);
+    box-shadow: 0 0 10px 3px var(--accent-color);
+    transform: scale(1.02);
+}
+
+#overlay {
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
+#editMessageForm #editMessageContent {
+    width: 98%;
+    height: 100px;
+    margin-bottom: 15px;
+    padding: 10px;
+    border: 1px solid var(--accent-color);
+    border-radius: 5px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+    background-color: var(--background-tertiary) !important;
+    color: var(--text-normal);
+    resize: vertical;
+}
+#edittagInput {
+    width: 98%;
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid var(--accent-color);
+    border-radius: 5px;
+    background-color: var(--background-tertiary);
+    color: var(--text-normal);
+}
+
+
+#saveMessageEdit {
+    background-color: var(--accent-color);
+    padding: 10px 20px;
+    background-color: var(--accent-color);
+    color: var(--background-tertiary);
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s;
+}
+#cancelMessageEdit {
+    background-color: #dc3545;
+    padding: 10px 20px;
+    color: var(--background-tertiary);
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s;
+}
+
+#saveMessageEdit:hover {
+    background-color: var(--accent-color-hover);
+    transform: scale(1.05);
+    box-shadow: 0px 0px 10px 3px var(--accent-color-hover);
+}
+#cancelMessageEdit:hover{
+    background-color: #f01e33;
+    transform: scale(1.05);
+    box-shadow: 0px 0px 10px 3px #f01e33;
+}
+
+
+.search-form {
+    background-color: var(--background-secondary);
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+#search-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+#search-form input[type="text"] {
+    flex-grow: 1;
+    padding: 10px;
+    border: 1px solid var(--accent-color);
+    border-radius: 5px;
+    background-color: var(--background-tertiary);
+    color: var(--text-normal);
+}
+
+#search-form label {
+    display: flex;
+    align-items: center;
+    color: var(--text-normal);
+    margin-right: 15px;
+}
+
+#search-form input[type="radio"] {
+    margin-right: 5px;
+}
+
+#search-form button {
+    padding: 10px 20px;
+    background-color: var(--accent-color);
+    color: var(--background-tertiary);
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.3s ease;
+}
+
+#search-form button:hover {
+    background-color: var(--accent-color-hover);
+    transform: scale(1.05);
+}
+.welcome-header {
+    color: white;
+    text-align: center;
+    border-bottom: 3px solid rgb(65, 255, 245);
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+.wysyłanie{
+    color: white;
+    text-align: center;
+    border-bottom: 2px solid rgb(65, 255, 245);
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+.btn {
+    display: inline-block;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    text-align: center;
+    text-decoration: none;
+    transition: background-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.download-avatar-btn {
+    background-color: var(--accent-color);
+    color: white;
+    margin-top: 10px;
+}
+
+.download-avatar-btn:hover {
+    background-color: var(--accent-color-hover);
+}
+
+.user-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.action-btn {
+    flex: 1;
+}
+
+.follow-btn {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.follow-btn:hover {
+    background-color: #45a049;
+}
+
+.friend-btn {
+    background-color: #2196F3;
+    color: white;
+}
+
+.friend-btn:hover {
+    background-color: #0b7dda;
+}
+
+.flash-message {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(255, 0, 0, 0.8);
+    color: white;
+    padding: 15px 30px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+    backdrop-filter: blur(5px);
+    z-index: 1001;
+    text-align: center;
+    max-width: 80%;
+}
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+.fade-out {
+    animation: fadeOut 1s ease-out forwards;
+}
+.nawigacja {
+    background-color: var(--background-secondary);
+    padding: 15px 0;
+    position: sticky;
+    z-index: 1000;
+    display: flex;
+    margin-top: 15px;
+    margin-left: auto;
+    margin-right: auto;
+    margin-bottom: 10px;
+    width: 60%;
+    border-radius: 25px;
+    justify-content: space-around;
+    align-items: center;
+    box-shadow: 0 2px 10px 0 rgba(0,0,0,.2);
+    transition: background-color 0.8s ease, transform 0.8s, box-shadow 0.8s;
+}
+
+.nawigacja:hover {
+    background-color: rgba(31, 242, 209, 0.1);
+    transform: scale(1.02);
+    box-shadow: var(--accent-color) 0 0 15px 5px;
+}
+
+.nawigacja a {
+    color: var(--text-normal);
+    text-decoration: none;
+    padding: 8px 15px;
+    border-radius: 15px;
+    transition: background-color 0.3s ease, transform 0.3s, box-shadow 0.5s, color 0.3s;
+}
+
+.nawigacja a:hover {
+    background-color: var(--accent-color);
+    color: var(--background-tertiary);
+    transform: scale(1.1);
+    box-shadow: var(--accent-color) 0 0 8px 2px;
+}
+.user-info{
+    color: white;
 }

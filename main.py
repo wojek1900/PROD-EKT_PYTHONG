@@ -46,7 +46,6 @@ class Role(db.Model, RoleMixin):
     name = db.Column(db.String(80), unique=True)
     description = db.Column(db.String(255))
 
-
 friendships = db.Table('friendships',
     db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
     db.Column('friend_id', db.Integer, db.ForeignKey('user.id'), primary_key=True)
@@ -331,6 +330,9 @@ class public_post(db.Model):
         if not self.fs_uniquifier:
             self.fs_uniquifier = str(uuid.uuid4())
 
+@app.template_filter('add_hours')
+def add_hours_filter(dt, hours=0):
+    return dt + timedelta(hours=hours)
 
 class public_comment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -420,7 +422,12 @@ def main():
     return render_template('main.html', user=current_user, posts=posts, search_query=search_query, search_type=search_type)
 
 
-
+@app.route("/get_is_comments/<int:post_id>")
+@login_required
+def get_is_comments(post_id):
+    post = public_post.query.get_or_404(post_id)
+    return jsonify({'is_comments': post.comments_allowed})
+    
 
 @app.route("/get_all_post_detailed")
 @login_required
@@ -467,7 +474,8 @@ def get_all_post_detailed():
                 'author': {
                     'id': comment.user.id,
                     'nick': comment.user.nick,
-                    'mail': comment.user.mail
+                    'mail': comment.user.mail,
+                    'zdjecie_wskaznik': comment.user.zdjecie_wskaznik
                 }
             } for comment in post.post_comments],
             'reactions': [{
@@ -1828,16 +1836,6 @@ if __name__ == "__main__":
 
 
 ################################################################
-# (trudne) do poprawy jest zrobienie rzeczy aktualnie czyli reakcje sie nie odznaczają jak ma być 0 komentarze nie usuwają się 
-# (łatwe) pozbyć się trybu private (mogą zostać w bazie danych żeby nie resetować)
-# (trudne) dodać style wszędzie gdzie nie ma
-# (trudne) przeportować funkcjonalności do zakłądek odpowiednich
-# (raczej łatwe) dodać podsumowanie komentarzy przez ai
-# (raczej łatwe) usuwanie komentarzy z postów(jeszcze nie działa do końca jest przycisk dla odpwoiednich osób ale nie działa)
-# (umiarokowane) poprawić wzystkie wady np. jak gdzies nie działa jakiś przycisk a powinien to naprawić. czy gdzieś nie ma opcji czegoś a powinna być to dodać. błędy jakie zaobserwowałem :
-# - (trudne) naprawić robienie postów i dodanie plików a potem ich usuwanie 
-# - (do ogarnięcia) naprawić nie ma opcji edycji usuwania postów dodawani komentarzy itd w profilu w stronie postu naprawić trzeba 
-# - (do ogarnięcia) naprawić brak wyświetlania poprawnej liczby komentarzy kiedy się ich nie odsłoni bo zawsze jest 0 na początku (już gdzies jest zrobione)
 # - (łatwe) naprawić to żeby admin nie widział przycisku do edycji 
 # - (łatwe) w profile działa tylko drag and drop a nie da się wybierać tradycyjnie
 ################################################################
