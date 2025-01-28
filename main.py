@@ -620,7 +620,6 @@ def add_user():
 
 
 
-from flask import jsonify
 
 @app.route("/delete_comment/<int:comment_id>", methods=['DELETE'])
 @login_required
@@ -700,9 +699,7 @@ def add_public_post():
                     file_type=file_type
                 )
                 db.session.add(new_attachment)
-        print("2")
         db.session.commit()
-        print("3")
         return jsonify({"message": "Post został dodany pomyślnie.", "status": "OK"}), 200
     except Exception as e:
         db.session.rollback()

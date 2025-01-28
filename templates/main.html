@@ -701,7 +701,6 @@
                 formData.append('text', editMessageContent.value);
                 formData.append('tags', tagInput.value);
                 Array.from(existingMessageAttachments.children)
-                // Collect existing attachments that should be kept
                 const existingAttachments = Array.from(existingMessageAttachments.children)
                     .map(child => {
                         const element = child.querySelector('img, video, audio, a');
@@ -724,14 +723,11 @@
                     })
                     .filter(attachment => attachment && !attachmentsToDelete.includes(attachment.id));
                 
-                // Append existing attachments to keep
                 console.log(JSON.stringify(existingAttachments));
                 formData.append('attachments', JSON.stringify(existingAttachments));
                 
-                // Append attachments to delete
                 attachmentsToDelete.forEach(id => formData.append('delete_attachments', id));
                 
-                // Append new attachments
                 for (let file of editMessageFiles.files) {
                     formData.append('new_attachments', file);
                 }
@@ -747,7 +743,6 @@
                     if (response.ok) {
                         const result = await response.json();
                         if (result.status === "OK") {
-                            //location.reload(); 
                             hideEditForm();
                         } else {
                             console.error('Server response:', result);
