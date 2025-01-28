@@ -1181,10 +1181,8 @@
             const $messageElement = $(messageHtml);
             $('#chat-messages').append($messageElement);
         
-            // Dodaj załączniki
             updateAttachments($messageElement.find('.message-box'), message.attachments);
         
-            // Dodaj przyciski akcji na końcu
             if (isCurrentUser) {
                 const actionsHtml = `
                     <div class="message-actions">

@@ -316,7 +316,7 @@ h1, h2, h3 {
 
 #edit-description-container {
     margin-top: 15px;
-    background: none; /* lub background-color: transparent; */
+    background: none; 
 }
 
 #description-input {
@@ -325,19 +325,17 @@ h1, h2, h3 {
     padding: 10px;
     border-radius: 5px;
     border: 1px solid var(--accent-color-light);
-    background-color: transparent; /* Zmienione na transparent */
+    background-color: transparent;
     color: var(--text-normal);
     font-size: 1em;
     resize: vertical;
     margin-bottom: 10px;
 }
 
-/* Dodaj to dla innych elementów, które mają mieć przezroczyste tło */
 .element-bez-tla {
     background: none;
 }
 
-/* Możesz też dodać klasę dla elementów, które mają mieć przezroczyste tło */
 .transparent-bg {
     background-color: transparent;
 }
@@ -562,7 +560,6 @@ input[type="file"]:hover {
     box-shadow: 0 0 10px var(--accent-color-light);
 }
 
-/* Stylizacja przycisku "Choose File" */
 input[type="file"]::-webkit-file-upload-button {
     visibility: hidden;
     display: none;

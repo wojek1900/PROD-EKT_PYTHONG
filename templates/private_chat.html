@@ -706,7 +706,6 @@
 
 
         
-            // Event delegation for edit and delete buttons
             function saveEditedMessage() {
                 const formData = new FormData();
                 const contentForSaving = processMessageContent(editMessageContent.value);
@@ -1022,7 +1021,6 @@
                                     displayMessage(message);
                                 }
                 
-                                // Update nickname and profile picture
                                 const existingProfileInMessage = $(`.message-box[data-message-id="${message.id}"]`);
                                 const currentNick = existingProfileInMessage.attr('data-user-nick');
                                 const currentZdjecieVersion = existingProfileInMessage.attr('data-user-zdjecie-version');

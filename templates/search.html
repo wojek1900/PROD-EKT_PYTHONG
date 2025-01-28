@@ -77,7 +77,6 @@
                 resultsContainer.innerHTML = '<p class="tekst">Wpisz coś, aby rozpocząć wyszukiwanie.</p>';
             }
         
-            // Pokazuj domyślną wiadomość na początku
             showDefaultMessage();
         
             searchInput.addEventListener('input', function() {
@@ -86,11 +85,11 @@
                     fetch(`/search_ajax?q=${encodeURIComponent(query)}`)
                         .then(response => response.json())
                         .then(users => {
-                            console.log('Received users:', users);  // Debug log
+                            console.log('Received users:', users); 
                             if (users.length > 0) {
                                 let html = '<h2 class="tekst-gluwny results-header">Wyniki wyszukiwania:</h2><div class="item-list">';
                                 users.forEach(user => {
-                                    console.log('Processing user:', user);  // Debug log
+                                    console.log('Processing user:', user);  
                                     const profileUrl = `/user/${user.id}`;
                                     const avatarUrl = user.avatar.startsWith('basics/') 
                                         ? `/static/${user.avatar}`
@@ -107,7 +106,7 @@
                                     `;
                                 });
                                 html += '</div>';
-                                console.log('Generated HTML:', html);  // Debug log
+                                console.log('Generated HTML:', html);  
                                 resultsContainer.innerHTML = html;
                             } else {
                                 resultsContainer.innerHTML = '<p class="tekst">Nie znaleziono użytkowników.</p>';

@@ -28,7 +28,6 @@ document.getElementById('post-form').addEventListener('submit', function(e) {
         .then(data => {
             if(data.status === "OK") {
                 alert(data.message);
-                // Usuń post z DOM
                 document.getElementById(`post-${postId}`).remove();
             } else {
                 alert(data.message);
@@ -96,7 +95,6 @@ function addComment(postId) {
             commentsContainer.insertAdjacentHTML('beforeend', newCommentHtml);
             document.querySelector(`#comment-input-${postId}`).value = '';
             
-            // Aktualizacja liczby komentarzy
             const commentButton = document.querySelector(`button[data-post-id="${postId}"]`);
             const currentCount = parseInt(commentButton.textContent.match(/\d+/)[0]);
             commentButton.textContent = `Komentarze (${currentCount + 1})`;

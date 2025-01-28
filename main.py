@@ -540,7 +540,6 @@ def toggle_admin(user_id):
     admin_role = Role.query.filter_by(name='admin').first()
 
     if not admin_role:
-        #add admin role if it doesn't exist
         admin_role = Role(name='admin')
         db.session.add(admin_role)
 
@@ -584,7 +583,6 @@ def add_user():
             flash('Wszystkie pola są wymagane.')
             return redirect(url_for('register'))
 
-        # Sprawdzenie, czy nick zawiera znak "@"
         if '@' in nick:
             flash('Nick nie może zawierać znaku "@".')
             return redirect(url_for('register'))
@@ -633,7 +631,6 @@ def delete_comment(comment_id):
     db.session.delete(comment)
     db.session.commit()
 
-    # Aktualizuj liczbę komentarzy dla posta
     comment_count = public_comment.query.filter_by(post_id=post.id).count()
 
     return jsonify({
@@ -793,7 +790,6 @@ def edit_post(post_id):
         new_tags = request.form.get('tags', '').strip()
         print(f"Otrzymane tagi: {new_tags}")
         
-        # Konwertuj string tagów na listę
         tags_list = [tag.strip() for tag in new_tags.split(',') if tag.strip()]
         print(f"Lista tagów: {tags_list}")
 
@@ -813,10 +809,8 @@ def edit_post(post_id):
 
         post.text = new_text
         
-        # Usuń wszystkie istniejące tagi posta
         post.tags.clear()
         
-        # Dodaj nowe tagi
         for tag_name in tags_list:
             tag = Tag.query.filter_by(name=tag_name).first()
             if not tag:
@@ -1834,11 +1828,6 @@ if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5555, debug=True)
 
 
-
-################################################################
-# - (łatwe) naprawić to żeby admin nie widział przycisku do edycji 
-# - (łatwe) w profile działa tylko drag and drop a nie da się wybierać tradycyjnie
-################################################################
 
 
 

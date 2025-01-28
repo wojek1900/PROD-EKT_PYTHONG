@@ -1065,7 +1065,6 @@ document.querySelectorAll('.comments').forEach(container => {
             return div;
         },
     
-        // Tagi
         tags(postElement, newTags) {
             const container = postElement.querySelector('.tags');
             if (!container) return;
@@ -1073,12 +1072,10 @@ document.querySelectorAll('.comments').forEach(container => {
             const existing = [...container.querySelectorAll('.tag')];
             const newTagNames = newTags.map(t => t.toLowerCase());
     
-            // Usuń nieaktualne
             existing.forEach(tag => {
                 if (!newTagNames.includes(tag.textContent.toLowerCase())) tag.remove();
             });
     
-            // Dodaj nowe
             newTagNames.forEach(name => {
                 if (!existing.some(t => t.textContent.toLowerCase() === name)) {
                     const p = document.createElement('p');
@@ -1090,7 +1087,6 @@ document.querySelectorAll('.comments').forEach(container => {
         }
     };
     
-    // Główna funkcja sprawdzająca zmiany
     const checkForChanges = async () => {
         try {
             const response = await fetch('/get_all_post_detailed');
@@ -1104,29 +1100,24 @@ document.querySelectorAll('.comments').forEach(container => {
     
             const diff = findArrayDifferences(previousPostsData, newPosts, 'id');
     
-            // Obsługa usuniętych postów
             diff.removed.forEach(post => {
                 document.querySelector(`.post[data-post-id="${post.id}"]`)?.remove();
             });
     
-            // Obsługa nowych postów
             if (diff.added.length > 0) {
-                window.location.reload(); // Dla prostoty - można zaimplementować dynamiczne dodawanie
+                window.location.reload(); 
                 return;
             }
     
-            // Aktualizacja istniejących postów
             diff.changed.forEach(updatedPost => {
                 const oldPost = previousPostsData.find(p => p.id === updatedPost.id);
                 const postElement = document.querySelector(`.post[data-post-id="${updatedPost.id}"]`);
                 if (!postElement || !oldPost) return;
     
-                // Aktualizacja podstawowych informacji
                 if (updatedPost.text !== oldPost.text) {
                     postElement.querySelector('.post-content').textContent = updatedPost.text;
                 }
     
-                // Aktualizacja autora
                 if (!deepCompare(updatedPost.author, oldPost.author)) {
                     postElement.querySelectorAll('.author-name').forEach(el => {
                         el.textContent = updatedPost.author.nick;
@@ -1138,7 +1129,6 @@ document.querySelectorAll('.comments').forEach(container => {
                     });
                 }
     
-                // Aktualizacja poszczególnych sekcji
                 updateElements.reactions(updatedPost.id, Object.entries(
                     updatedPost.reactions.reduce((acc, r) => {
                         acc[r.reaction_type] = (acc[r.reaction_type] || 0) + 1;
@@ -1157,7 +1147,6 @@ document.querySelectorAll('.comments').forEach(container => {
         }
     };
     
-    // Inicjalizacja
     document.addEventListener('DOMContentLoaded', () => {
         window.currentUser = {
             id: "{{ current_user.id }}",

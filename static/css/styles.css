@@ -222,7 +222,6 @@
     opacity: 0;
   }
 
-/* register obraz1 center*/
 .register{
     margin-left: auto;
     margin-right: auto;
@@ -479,11 +478,11 @@
 
 
 .reaction-btn.user-reacted {
-    background-color: #90EE90;  /* Jasny zielony */
+    background-color: #90EE90; 
 }
 
 .comment.user-comment {
-    background-color: #FFCCCB;  /* Jasny czerwony */
+    background-color: #FFCCCB;  
 }
 
 .reaction-count {
