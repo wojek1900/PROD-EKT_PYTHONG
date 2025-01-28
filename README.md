@@ -1,9 +1,9 @@
-#🚀 PROJEKT ZALICZENIOWY Z PYTHONA WEB DEVELOPMENT I DEEP LEARNING
-##🛠️ Rzeczy wymagane do zainstalowania
+# 🚀 PROJEKT ZALICZENIOWY Z PYTHONA WEB DEVELOPMENT I DEEP LEARNING
+## 🛠️ Rzeczy wymagane do zainstalowania
 ```
 pip install -r requirements.txt
 ```
-##📝 Na czym skupi się ten projekt
+## 📝 Na czym skupi się ten projekt
 <ul>
   <li>✨ Rejestrowanie się</li>
   <li>🔐 Logowanie się</li>
