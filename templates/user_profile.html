@@ -114,7 +114,7 @@
         setInterval(fetchUserInfo, 1000);
     });
 </script>
-    <h2>posty od {{ user.nick }} (trzeba odświerzyc żeby zobaczyć zmiany)</h2>
+    <h1 class="welcome-header">posty od {{ user.nick }} (trzeba odświerzyc żeby zobaczyć zmiany)</h1>
     <div id="posts">
         {% for post in posts %}
             <div class="post" style="margin-left:10%;margin-right:10%">

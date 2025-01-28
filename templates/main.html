@@ -89,7 +89,7 @@
     </div>
 
     <div id="posts">
-        <p>POSTY</p>
+        <h1 class="welcome-header">POSTY</h1>
         {% for post in posts %}
             <div class="post-clickable post" data-post-id="{{ post.id }}">
                 <a href="{{ url_for('user_profile', user_id=post.author.id) }}">
@@ -1052,7 +1052,7 @@ document.querySelectorAll('.comments').forEach(container => {
             }else if (att.file_type.startsWith('video/')) {
                 div.innerHTML = `
                     <video controls>
-                        <source src="/static/uploads/${att.file_name}" type="${att.file_type}">
+                        <source src="/static/uploads/${att.file_name}"  type="${att.file_type}">
                     </video>
                 `;
             } else {
