@@ -1814,13 +1814,6 @@ if __name__ == "__main__":
 
         db.session.commit()
         
-        if not User.query.filter_by(nick='test').first():
-            user = User(nick='test', password=generate_password_hash('test'), mail='test@test.com')
-            db.session.add(user)
-            user1 = User(nick='test1', password=generate_password_hash('test1'), mail='test1@test.com')
-            db.session.add(user1)
-            
-            db.session.commit()
 
     app.run(host='0.0.0.0', port=5555, debug=True)
 

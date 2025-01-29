@@ -1,8 +1,6 @@
 function initTypeAnimation() {
     console.log("Załadowano stronę"); 
     const texts = [
-        "Wild Snakes Messagging approch", 
-        "Dzikie węże : SnakeLine", 
         "Antoni Fijałkowski", 
         "Natalia Ostas", 
         "Szymon Fugiel", 

@@ -38,7 +38,7 @@
         <a href="{{ url_for('logout') }}">Wyloguj się</a>
     </div>
 
-    <h1>Profil {{ user.nick }}</h1>
+    <h1 class="welcome-header">Profil {{ user.nick }}</h1>
     
 
     <div class="user-info">
@@ -114,7 +114,7 @@
         setInterval(fetchUserInfo, 1000);
     });
 </script>
-    <h1 class="welcome-header">posty od {{ user.nick }} (trzeba odświerzyc żeby zobaczyć zmiany)</h1>
+    <h2 class="welcome-header">posty od {{ user.nick }} (trzeba odświerzyc żeby zobaczyć zmiany jak jakieś zaszły)</h1>
     <div id="posts">
         {% for post in posts %}
             <div class="post" style="margin-left:10%;margin-right:10%">
@@ -149,7 +149,13 @@
                         {% endif %}
                     {% endfor %}
                 </div>
-                <p class="post-date">Posted on: {{ post.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                <div class="tags">
+                    <p>Tagi:</p>
+                    {% for tag in post.get_tags() %}
+                        <p class="tag">{{ tag }}</p>
+                    {% endfor %}
+                </div>
+                <p class="post-date">Posted on: {{ post.created_at | add_hours(1) }}</p>
                 <div class="reactions">
                     {% for reaction_type, emoji in [
                         ('like', '👍'), 
