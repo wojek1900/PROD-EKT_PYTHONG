@@ -10,7 +10,7 @@ pip install -r requirements.txt
 <li> Szymon Fugiel </li>
 <li> Stefan Mickiewicz </li>
 </ul>
-## 📝 Na czym skupi się ten projekt
+## 📝 Na czym skupia się ten projekt
 <ul>
   <li>✨ Rejestrowanie się</li>
   <li>🔐 Logowanie się</li>
