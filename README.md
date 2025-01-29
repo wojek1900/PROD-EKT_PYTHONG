@@ -1,21 +1,19 @@
-<h1 style="border-bottom: 3px solid rgb(0, 151, 144)"> 🚀 PROJEKT ZALICZENIOWY Z PYTHONA WEB DEVELOPMENT I DEEP LEARNING</h1>
-<h2 style="border-bottom: 2px solid rgb(0, 151, 144)">
+<h1> 🚀 PROJEKT ZALICZENIOWY Z PYTHONA WEB DEVELOPMENT I DEEP LEARNING</h1>
+<h2>
 🛠️ Rzeczy wymagane do zainstalowania
 </h2>
-<div style="font-size:28px">
-<code>
+```
 pip install -r requirements.txt
-</code>
-</div>
-<h2 style="color:rgb(207, 255, 249);border-bottom: 2px solid rgb(0, 151, 144)"> Drużyna Dzikie węże
+```
+<h2 > Drużyna Dzikie węże
 </h2>
-<ul style="color:rgb(78, 255, 24);font-size:18px">
+<ul>
 <li> Antoni Fijałkowski </li>
 <li> Natalia Ostas </li>
 <li> Szymon Fugiel </li>
 <li> Stefan Mickiewicz </li>
 </ul>
-<h1 style="border-bottom: 3px solid rgb(0, 151, 144)">📝 Na czym skupia się ten projekt </h1>
+<h1>📝 Na czym skupia się ten projekt </h1>
 <ul>
   <li>✨ Rejestrowanie się</li>
   <li>🔐 Logowanie się</li>
