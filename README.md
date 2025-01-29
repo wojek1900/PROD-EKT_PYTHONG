@@ -3,7 +3,7 @@
 🛠️ Rzeczy wymagane do zainstalowania
 </h2>
 ```
-pip install -r requirements.txt
+ pip install -r requirements.txt 
 ```
 <h2 > Drużyna Dzikie węże
 </h2>
