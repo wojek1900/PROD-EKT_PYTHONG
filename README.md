@@ -6,13 +6,12 @@
 ```
  pip install -r requirements.txt 
 ```
-<h2 > Drużyna Dzikie węże
-</h2>
+<h2> Drużyna Dzikie węże</h2>
 <ul>
-<li> Antoni Fijałkowski </li>
-<li> Natalia Ostas </li>
-<li> Szymon Fugiel </li>
-<li> Stefan Mickiewicz </li>
+<li> Antoni Fijałkowski (wojek1900/Antoni Fijałkowski)</li>
+<li> Natalia Ostas (Natalia223600)</li>
+<li> Szymon Fugiel (szyfu)</li>
+<li> Stefan Mickiewicz (pkemwq)</li>
 </ul>
 <h1>📝 Na czym skupia się ten projekt </h1>
 <ul>
