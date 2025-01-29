@@ -2,6 +2,7 @@
 <h2>
 🛠️ Rzeczy wymagane do zainstalowania
 </h2>
+
 ```
  pip install -r requirements.txt 
 ```
